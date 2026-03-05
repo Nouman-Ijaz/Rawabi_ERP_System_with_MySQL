@@ -1,0 +1,387 @@
+import { query, get, run } from '../database/db.js';
+
+// Generate customer code
+function generateCustomerCode() {
+    return 'CUST-' + Date.now().toString(36).toUpperCase().slice(-6);
+}
+
+// Get all customers with optional filters
+export async function getAllCustomers(req, res) {
+    try {
+        const { status, type, search, page = 1, limit = 50 } = req.query;
+        
+        let sql = `
+            SELECT c.*, 
+                   COUNT(DISTINCT s.id) as total_shipments,
+                   SUM(CASE WHEN s.status = 'delivered' THEN 1 ELSE 0 END) as completed_shipments,
+                   SUM(s.final_amount) as total_revenue
+            FROM customers c
+            LEFT JOIN shipments s ON s.customer_id = c.id
+            WHERE 1=1
+        `;
+        const params = [];
+
+        if (status) {
+            sql += ' AND c.status = ?';
+            params.push(status);
+        }
+
+        if (type) {
+            sql += ' AND c.customer_type = ?';
+            params.push(type);
+        }
+
+        if (search) {
+            sql += ` AND (
+                c.company_name LIKE ? OR 
+                c.contact_person LIKE ? OR 
+                c.email LIKE ? OR 
+                c.customer_code LIKE ? OR
+                c.city LIKE ?
+            )`;
+            const searchTerm = `%${search}%`;
+            params.push(searchTerm, searchTerm, searchTerm, searchTerm, searchTerm);
+        }
+
+        sql += ' GROUP BY c.id ORDER BY c.created_at DESC';
+        
+        // Add pagination
+        const offset = (parseInt(page) - 1) * parseInt(limit);
+        sql += ` LIMIT ${parseInt(limit)} OFFSET ${offset}`;
+
+        const customers = await query(sql, params);
+        
+        // Get total count
+        let countSql = 'SELECT COUNT(*) as total FROM customers WHERE 1=1';
+        const countParams = [];
+        if (status) {
+            countSql += ' AND status = ?';
+            countParams.push(status);
+        }
+        if (type) {
+            countSql += ' AND customer_type = ?';
+            countParams.push(type);
+        }
+        if (search) {
+            countSql += ` AND (company_name LIKE ? OR contact_person LIKE ? OR email LIKE ?)`;
+            countParams.push(`%${search}%`, `%${search}%`, `%${search}%`);
+        }
+        const countResult = await get(countSql, countParams);
+
+        res.json({
+            data: customers,
+            pagination: {
+                page: parseInt(page),
+                limit: parseInt(limit),
+                total: countResult.total,
+                totalPages: Math.ceil(countResult.total / parseInt(limit))
+            }
+        });
+    } catch (error) {
+        console.error('Get customers error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+}
+
+// Get customer by ID
+export async function getCustomerById(req, res) {
+    try {
+        const { id } = req.params;
+        
+        const customer = await get(
+            'SELECT * FROM customers WHERE id = ?',
+            [id]
+        );
+
+        if (!customer) {
+            return res.status(404).json({ error: 'Customer not found' });
+        }
+
+        // Get contacts
+        const contacts = await query(
+            'SELECT * FROM customer_contacts WHERE customer_id = ?',
+            [id]
+        );
+
+        // Get shipment history
+        const shipments = await query(
+            `SELECT s.*, 
+                    d.id as driver_id, CONCAT(e.first_name, ' ', e.last_name) as driver_name,
+                    v.plate_number as vehicle_plate
+             FROM shipments s
+             LEFT JOIN drivers d ON d.id = s.driver_id
+             LEFT JOIN employees e ON e.id = d.employee_id
+             LEFT JOIN vehicles v ON v.id = s.vehicle_id
+             WHERE s.customer_id = ?
+             ORDER BY s.created_at DESC LIMIT 20`,
+            [id]
+        );
+
+        // Get invoices
+        const invoices = await query(
+            `SELECT i.*, 
+                    SUM(p.amount) as paid_amount
+             FROM invoices i
+             LEFT JOIN payments p ON p.invoice_id = i.id
+             WHERE i.customer_id = ?
+             GROUP BY i.id
+             ORDER BY i.invoice_date DESC LIMIT 20`,
+            [id]
+        );
+
+        // Get statistics
+        const stats = await get(
+            `SELECT 
+                COUNT(*) as total_shipments,
+                SUM(CASE WHEN status = 'delivered' THEN 1 ELSE 0 END) as completed_shipments,
+                SUM(final_amount) as total_revenue,
+                AVG(CASE WHEN actual_delivery_date IS NOT NULL 
+                    THEN DATEDIFF(actual_delivery_date, requested_delivery_date) 
+                    END) as avg_delivery_performance
+             FROM shipments
+             WHERE customer_id = ?`,
+            [id]
+        );
+
+        res.json({
+            ...customer,
+            contacts,
+            shipments,
+            invoices,
+            stats
+        });
+    } catch (error) {
+        console.error('Get customer error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+}
+
+// Create customer
+export async function createCustomer(req, res) {
+    try {
+        const {
+            companyName, contactPerson, email, phone, mobile, address, city, country,
+            taxNumber, crNumber, creditLimit, paymentTerms, customerType, notes
+        } = req.body;
+
+        // Check if email exists
+        const existing = await get('SELECT id FROM customers WHERE email = ?', [email]);
+        if (existing) {
+            return res.status(400).json({ error: 'Email already exists' });
+        }
+
+        const customerCode = generateCustomerCode();
+
+        const result = await run(
+            `INSERT INTO customers (
+                customer_code, company_name, contact_person, email, phone, mobile,
+                address, city, country, tax_number, cr_number, credit_limit,
+                payment_terms, customer_type, created_by
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [
+                customerCode, companyName, contactPerson, email, phone, mobile,
+                address, city, COALESCE(country, 'Saudi Arabia'), taxNumber, crNumber,
+                creditLimit || 0, paymentTerms || 30, customerType || 'regular', req.user.id
+            ]
+        );
+
+        // Log activity
+        await run(
+            'INSERT INTO activity_logs (user_id, action, entity_type, entity_id, new_values) VALUES (?, ?, ?, ?, ?)',
+            [req.user.id, 'CREATE_CUSTOMER', 'customer', result.id, JSON.stringify({ companyName, contactPerson, email })]
+        );
+
+        res.status(201).json({
+            id: result.id,
+            customerCode,
+            message: 'Customer created successfully'
+        });
+    } catch (error) {
+        console.error('Create customer error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+}
+
+// Update customer
+export async function updateCustomer(req, res) {
+    try {
+        const { id } = req.params;
+        const updates = req.body;
+
+        const customer = await get('SELECT * FROM customers WHERE id = ?', [id]);
+        if (!customer) {
+            return res.status(404).json({ error: 'Customer not found' });
+        }
+
+        await run(
+            `UPDATE customers SET
+                company_name = COALESCE(?, company_name),
+                contact_person = COALESCE(?, contact_person),
+                email = COALESCE(?, email),
+                phone = COALESCE(?, phone),
+                mobile = COALESCE(?, mobile),
+                address = COALESCE(?, address),
+                city = COALESCE(?, city),
+                country = COALESCE(?, country),
+                tax_number = COALESCE(?, tax_number),
+                cr_number = COALESCE(?, cr_number),
+                credit_limit = COALESCE(?, credit_limit),
+                payment_terms = COALESCE(?, payment_terms),
+                customer_type = COALESCE(?, customer_type),
+                status = COALESCE(?, status)
+             WHERE id = ?`,
+            [
+                updates.companyName, updates.contactPerson, updates.email, updates.phone,
+                updates.mobile, updates.address, updates.city, updates.country,
+                updates.taxNumber, updates.crNumber, updates.creditLimit, updates.paymentTerms,
+                updates.customerType, updates.status, id
+            ]
+        );
+
+        // Log activity
+        await run(
+            'INSERT INTO activity_logs (user_id, action, entity_type, entity_id, old_values, new_values) VALUES (?, ?, ?, ?, ?, ?)',
+            [req.user.id, 'UPDATE_CUSTOMER', 'customer', id, JSON.stringify(customer), JSON.stringify(updates)]
+        );
+
+        res.json({ message: 'Customer updated successfully' });
+    } catch (error) {
+        console.error('Update customer error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+}
+
+// Delete customer
+export async function deleteCustomer(req, res) {
+    try {
+        const { id } = req.params;
+
+        const customer = await get('SELECT * FROM customers WHERE id = ?', [id]);
+        if (!customer) {
+            return res.status(404).json({ error: 'Customer not found' });
+        }
+
+        // Check if customer has shipments
+        const shipments = await get('SELECT COUNT(*) as count FROM shipments WHERE customer_id = ?', [id]);
+        if (shipments.count > 0) {
+            return res.status(400).json({ error: 'Cannot delete customer with existing shipments' });
+        }
+
+        await run('DELETE FROM customers WHERE id = ?', [id]);
+
+        // Log activity
+        await run(
+            'INSERT INTO activity_logs (user_id, action, entity_type, entity_id, old_values) VALUES (?, ?, ?, ?, ?)',
+            [req.user.id, 'DELETE_CUSTOMER', 'customer', id, JSON.stringify(customer)]
+        );
+
+        res.json({ message: 'Customer deleted successfully' });
+    } catch (error) {
+        console.error('Delete customer error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+}
+
+// Add contact
+export async function addContact(req, res) {
+    try {
+        const { id } = req.params;
+        const { name, position, email, phone, isPrimary } = req.body;
+
+        const customer = await get('SELECT id FROM customers WHERE id = ?', [id]);
+        if (!customer) {
+            return res.status(404).json({ error: 'Customer not found' });
+        }
+
+        // If setting as primary, unset other primary contacts
+        if (isPrimary) {
+            await run(
+                'UPDATE customer_contacts SET is_primary = 0 WHERE customer_id = ?',
+                [id]
+            );
+        }
+
+        const result = await run(
+            'INSERT INTO customer_contacts (customer_id, name, position, email, phone, is_primary) VALUES (?, ?, ?, ?, ?, ?)',
+            [id, name, position, email, phone, isPrimary ? 1 : 0]
+        );
+
+        res.status(201).json({
+            id: result.id,
+            message: 'Contact added successfully'
+        });
+    } catch (error) {
+        console.error('Add contact error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+}
+
+// Update contact
+export async function updateContact(req, res) {
+    try {
+        const { id, contactId } = req.params;
+        const { name, position, email, phone, isPrimary } = req.body;
+
+        // If setting as primary, unset other primary contacts
+        if (isPrimary) {
+            await run(
+                'UPDATE customer_contacts SET is_primary = 0 WHERE customer_id = ? AND id != ?',
+                [id, contactId]
+            );
+        }
+
+        await run(
+            'UPDATE customer_contacts SET name = ?, position = ?, email = ?, phone = ?, is_primary = ? WHERE id = ? AND customer_id = ?',
+            [name, position, email, phone, isPrimary ? 1 : 0, contactId, id]
+        );
+
+        res.json({ message: 'Contact updated successfully' });
+    } catch (error) {
+        console.error('Update contact error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+}
+
+// Delete contact
+export async function deleteContact(req, res) {
+    try {
+        const { id, contactId } = req.params;
+
+        await run(
+            'DELETE FROM customer_contacts WHERE id = ? AND customer_id = ?',
+            [contactId, id]
+        );
+
+        res.json({ message: 'Contact deleted successfully' });
+    } catch (error) {
+        console.error('Delete contact error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+}
+
+// Get customer summary
+export async function getCustomerSummary(req, res) {
+    try {
+        const byType = await query('SELECT customer_type, COUNT(*) as count FROM customers GROUP BY customer_type');
+        const byStatus = await query('SELECT status, COUNT(*) as count FROM customers GROUP BY status');
+        
+        // Top customers by revenue
+        const topCustomers = await query(
+            `SELECT c.id, c.company_name, c.customer_type, SUM(s.final_amount) as total_revenue
+             FROM customers c
+             JOIN shipments s ON s.customer_id = c.id
+             WHERE s.status = 'delivered'
+             GROUP BY c.id
+             ORDER BY total_revenue DESC LIMIT 10`
+        );
+
+        res.json({
+            byType,
+            byStatus,
+            topCustomers
+        });
+    } catch (error) {
+        console.error('Get customer summary error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+}
