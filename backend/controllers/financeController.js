@@ -331,14 +331,23 @@ export async function getFinancialSummary(req, res) {
                    GROUP BY aging_bucket
                    ORDER BY MIN(DATEDIFF(CURDATE(), due_date))`),
             query(`SELECT
-                    DATE_FORMAT(invoice_date, '%Y-%m') as month,
-                    SUM(total_amount) as revenue,
-                    (SELECT SUM(amount) FROM expenses
+                    inv.month,
+                    inv.revenue,
+                    COALESCE(exp.expenses, 0) as expenses
+                   FROM (
+                     SELECT DATE_FORMAT(invoice_date, '%Y-%m') as month,
+                            SUM(total_amount) as revenue
+                     FROM invoices
+                     GROUP BY DATE_FORMAT(invoice_date, '%Y-%m')
+                   ) inv
+                   LEFT JOIN (
+                     SELECT DATE_FORMAT(expense_date, '%Y-%m') as month,
+                            SUM(amount) as expenses
+                     FROM expenses
                      WHERE status = 'approved'
-                       AND DATE_FORMAT(expense_date, '%Y-%m') = DATE_FORMAT(i.invoice_date, '%Y-%m')) as expenses
-                   FROM invoices i
-                   GROUP BY DATE_FORMAT(invoice_date, '%Y-%m')
-                   ORDER BY month DESC LIMIT 12`),
+                     GROUP BY DATE_FORMAT(expense_date, '%Y-%m')
+                   ) exp ON exp.month = inv.month
+                   ORDER BY inv.month DESC LIMIT 12`),
         ]);
 
         res.json({ revenue, expensesByCategory, outstandingInvoices, agedReceivables, monthlyData });

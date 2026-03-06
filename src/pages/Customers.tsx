@@ -1,213 +1,442 @@
-import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useEffect, useState, useCallback } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
 import { customersApi } from '@/lib/api';
-import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
 
-interface Customer {
-  id: number;
-  customer_code: string;
-  company_name: string;
-  contact_person: string;
-  email: string;
-  phone: string;
-  city: string;
-  country: string;
-  credit_limit: number;
-  customer_type: string;
-  status: string;
-  total_shipments?: number;
-  total_revenue?: number;
+const fmtSAR  = (n: any) => `SAR ${Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const fmtDate = (d: string) => d ? new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
+
+const TYPE_STYLE: Record<string, string> = {
+  corporate:  'bg-blue-500/15 text-blue-400',
+  vip:        'bg-amber-500/15 text-amber-400',
+  government: 'bg-purple-500/15 text-purple-400',
+  regular:    'bg-slate-500/15 text-slate-400',
+};
+const STATUS_STYLE: Record<string, string> = {
+  active:    'bg-emerald-500/15 text-emerald-400',
+  inactive:  'bg-slate-500/15 text-slate-400',
+  suspended: 'bg-red-500/15 text-red-400',
+};
+
+function Field({ label, value }: { label: string; value: any }) {
+  return (
+    <div>
+      <p className="text-[11px] text-slate-500">{label}</p>
+      <p className="text-xs text-white mt-0.5 break-words">{value || '—'}</p>
+    </div>
+  );
 }
 
-function getStatusColor(s: string) {
-  const m: Record<string,string> = { active:'bg-green-100 text-green-800', inactive:'bg-gray-100 text-gray-800', suspended:'bg-red-100 text-red-800' };
-  return m[s] || 'bg-gray-100 text-gray-800';
+function FIn({ label, required, ...props }: any) {
+  return (
+    <div>
+      <label className="block text-[11px] text-slate-500 mb-1">{label}{required && <span className="text-red-400 ml-0.5">*</span>}</label>
+      <input {...props} className="w-full px-3 py-2 text-xs bg-[#0f1117] border border-white/10 rounded-lg text-white placeholder-slate-600 focus:outline-none focus:border-blue-500/50" />
+    </div>
+  );
 }
-function getTypeColor(t: string) {
-  const m: Record<string,string> = { regular:'bg-blue-100 text-blue-800', vip:'bg-amber-100 text-amber-800', corporate:'bg-purple-100 text-purple-800', government:'bg-green-100 text-green-800' };
-  return m[t] || 'bg-gray-100 text-gray-800';
+function FSel({ label, children, ...props }: any) {
+  return (
+    <div>
+      <label className="block text-[11px] text-slate-500 mb-1">{label}</label>
+      <select {...props} className="w-full px-3 py-2 text-xs bg-[#0f1117] border border-white/10 rounded-lg text-white focus:outline-none focus:border-blue-500/50">
+        {children}
+      </select>
+    </div>
+  );
 }
 
-const BuildingIcon = (p: React.SVGProps<SVGSVGElement>) => <svg {...p} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>;
-const PlusIcon = (p: React.SVGProps<SVGSVGElement>) => <svg {...p} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4"/></svg>;
-const SearchIcon = (p: React.SVGProps<SVGSVGElement>) => <svg {...p} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>;
-const EditIcon = (p: React.SVGProps<SVGSVGElement>) => <svg {...p} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>;
-const TrashIcon = (p: React.SVGProps<SVGSVGElement>) => <svg {...p} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>;
-const EyeIcon = (p: React.SVGProps<SVGSVGElement>) => <svg {...p} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>;
-
-const emptyForm = { companyName:'', contactPerson:'', email:'', phone:'', mobile:'', address:'', city:'', country:'Saudi Arabia', taxNumber:'', crNumber:'', creditLimit:'', paymentTerms:'30', customerType:'regular', status:'active', notes:'' };
-
-// Helper to safely extract array from backend response
-function extractArray(response: unknown): unknown[] {
-  if (Array.isArray(response)) return response;
-  if (response && typeof response === 'object' && 'data' in response) {
-    const data = (response as Record<string, unknown>).data;
-    return Array.isArray(data) ? data : [];
-  }
-  return [];
-}
+const EMPTY_FORM = {
+  companyName: '', contactPerson: '', email: '', phone: '', mobile: '',
+  address: '', city: '', country: 'Saudi Arabia', taxNumber: '', crNumber: '',
+  creditLimit: '', paymentTerms: '30', customerType: 'regular', status: 'active',
+};
 
 export default function Customers() {
-  const [customers, setCustomers] = useState<Customer[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [typeFilter, setTypeFilter] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
-  const [isAddOpen, setIsAddOpen] = useState(false);
-  const [isEditOpen, setIsEditOpen] = useState(false);
-  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
-  const [selected, setSelected] = useState<Customer | null>(null);
-  const [form, setForm] = useState({ ...emptyForm });
+  const { hasPermission } = useAuth();
+  const canEdit   = hasPermission(['super_admin', 'admin', 'dispatcher']);
+  const canDelete = hasPermission(['super_admin', 'admin']);
 
-  useEffect(() => { loadCustomers(); }, [searchQuery, typeFilter, statusFilter]);
+  const [customers, setCustomers]     = useState<any[]>([]);
+  const [loading, setLoading]         = useState(true);
+  const [total, setTotal]             = useState(0);
+  const [search, setSearch]           = useState('');
+  const [filterStatus, setFilterStatus] = useState('');
+  const [filterType, setFilterType]   = useState('');
+  const [selected, setSelected]       = useState<any | null>(null);
+  const [showDetail, setShowDetail]   = useState(false);
+  const [showForm, setShowForm]       = useState(false);
+  const [editId, setEditId]           = useState<number | null>(null);
+  const [form, setForm]               = useState({ ...EMPTY_FORM });
+  const [saving, setSaving]           = useState(false);
+  const [detailTab, setDetailTab]     = useState<'overview' | 'shipments' | 'invoices' | 'contacts'>('overview');
 
-  const loadCustomers = async () => {
+  const load = useCallback(async () => {
+    setLoading(true);
     try {
-      const params: Record<string,string> = {};
-      if (searchQuery) params.search = searchQuery;
-      if (typeFilter) params.customerType = typeFilter;
-      if (statusFilter) params.status = statusFilter;
+      const params: Record<string, string> = {};
+      if (search)       params.search = search;
+      if (filterStatus) params.status = filterStatus;
+      if (filterType)   params.type   = filterType;
       const res = await customersApi.getAll(params);
-      const data = extractArray(res);
-      setCustomers(data as Customer[]);
+      setCustomers(res.data || res);
+      setTotal(res.pagination?.total || (res.data || res).length);
     } catch { toast.error('Failed to load customers'); }
-    finally { setIsLoading(false); }
-  };
+    finally { setLoading(false); }
+  }, [search, filterStatus, filterType]);
 
-  const handleCreate = async (e: React.FormEvent) => {
-    e.preventDefault();
+  useEffect(() => { load(); }, [load]);
+
+  const openDetail = async (c: any) => {
     try {
-      await customersApi.create({ companyName:form.companyName, contactPerson:form.contactPerson, email:form.email, phone:form.phone, mobile:form.mobile, address:form.address, city:form.city, country:form.country, taxNumber:form.taxNumber, crNumber:form.crNumber, creditLimit:parseFloat(form.creditLimit)||0, paymentTerms:parseInt(form.paymentTerms)||30, customerType:form.customerType, notes:form.notes });
-      toast.success('Customer created'); setIsAddOpen(false); setForm({...emptyForm}); loadCustomers();
-    } catch (err: unknown) { toast.error(err instanceof Error ? err.message : 'Failed to create customer'); }
+      const full = await customersApi.getById(c.id);
+      setSelected(full);
+      setDetailTab('overview');
+      setShowDetail(true);
+    } catch { toast.error('Failed to load customer details'); }
   };
 
-  const handleUpdate = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selected) return;
+  const openCreate = () => {
+    setForm({ ...EMPTY_FORM });
+    setEditId(null);
+    setShowForm(true);
+  };
+
+  const openEdit = (c: any) => {
+    setForm({
+      companyName: c.company_name || '', contactPerson: c.contact_person || '',
+      email: c.email || '', phone: c.phone || '', mobile: c.mobile || '',
+      address: c.address || '', city: c.city || '', country: c.country || 'Saudi Arabia',
+      taxNumber: c.tax_number || '', crNumber: c.cr_number || '',
+      creditLimit: c.credit_limit || '', paymentTerms: c.payment_terms || '30',
+      customerType: c.customer_type || 'regular', status: c.status || 'active',
+    });
+    setEditId(c.id);
+    setShowForm(true);
+  };
+
+  const handleSave = async () => {
+    if (!form.companyName.trim()) return toast.error('Company name is required');
+    setSaving(true);
     try {
-      await customersApi.update(selected.id, { companyName:form.companyName, contactPerson:form.contactPerson, email:form.email, phone:form.phone, mobile:form.mobile, address:form.address, city:form.city, country:form.country, taxNumber:form.taxNumber, crNumber:form.crNumber, creditLimit:parseFloat(form.creditLimit)||0, paymentTerms:parseInt(form.paymentTerms)||30, customerType:form.customerType, status:form.status, notes:form.notes });
-      toast.success('Customer updated'); setIsEditOpen(false); setForm({...emptyForm}); loadCustomers();
-    } catch (err: unknown) { toast.error(err instanceof Error ? err.message : 'Failed to update customer'); }
+      if (editId) {
+        await customersApi.update(editId, form);
+        toast.success('Customer updated');
+      } else {
+        const res = await customersApi.create(form);
+        toast.success(`Customer ${res.customerCode} created`);
+      }
+      setShowForm(false);
+      load();
+      if (showDetail && selected) {
+        const full = await customersApi.getById(editId || selected.id);
+        setSelected(full);
+      }
+    } catch (e: any) {
+      toast.error(e.message || 'Failed to save customer');
+    } finally { setSaving(false); }
   };
 
-  const handleDelete = async () => {
-    if (!selected) return;
-    try { await customersApi.delete(selected.id); toast.success('Customer deleted'); setIsDeleteOpen(false); setSelected(null); loadCustomers(); }
-    catch (err: unknown) { toast.error(err instanceof Error ? err.message : 'Failed to delete customer'); }
+  const handleDelete = async (id: number) => {
+    if (!confirm('Delete this customer? This cannot be undone.')) return;
+    try {
+      await customersApi.delete(id);
+      toast.success('Customer deleted');
+      setShowDetail(false);
+      load();
+    } catch { toast.error('Cannot delete — customer may have linked shipments or invoices'); }
   };
 
-  const openEdit = (c: Customer) => {
-    setSelected(c);
-    setForm({ companyName:c.company_name||'', contactPerson:c.contact_person||'', email:c.email||'', phone:c.phone||'', mobile:'', address:'', city:c.city||'', country:c.country||'Saudi Arabia', taxNumber:'', crNumber:'', creditLimit:c.credit_limit?.toString()||'', paymentTerms:'30', customerType:c.customer_type||'regular', status:c.status||'active', notes:'' });
-    setIsEditOpen(true);
-  };
-
-  const f = (k: keyof typeof emptyForm) => (e: React.ChangeEvent<HTMLInputElement>) => setForm(prev => ({...prev, [k]: e.target.value}));
-  const fs = (k: keyof typeof emptyForm) => (v: string) => setForm(prev => ({...prev, [k]: v}));
-
-  const CustomerForm = ({ isEdit }: { isEdit: boolean }) => (
-    <form onSubmit={isEdit ? handleUpdate : handleCreate} className="space-y-4">
-      <div className="space-y-2"><Label>Company Name *</Label><Input value={form.companyName} onChange={f('companyName')} required /></div>
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2"><Label>Contact Person</Label><Input value={form.contactPerson} onChange={f('contactPerson')} /></div>
-        <div className="space-y-2"><Label>Email</Label><Input type="email" value={form.email} onChange={f('email')} /></div>
-      </div>
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2"><Label>Phone</Label><Input value={form.phone} onChange={f('phone')} /></div>
-        <div className="space-y-2"><Label>Mobile</Label><Input value={form.mobile} onChange={f('mobile')} /></div>
-      </div>
-      <div className="space-y-2"><Label>Address</Label><Input value={form.address} onChange={f('address')} /></div>
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2"><Label>City</Label><Input value={form.city} onChange={f('city')} /></div>
-        <div className="space-y-2"><Label>Country</Label><Input value={form.country} onChange={f('country')} /></div>
-      </div>
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2"><Label>Tax Number</Label><Input value={form.taxNumber} onChange={f('taxNumber')} /></div>
-        <div className="space-y-2"><Label>CR Number</Label><Input value={form.crNumber} onChange={f('crNumber')} /></div>
-      </div>
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2"><Label>Credit Limit (SAR)</Label><Input type="number" value={form.creditLimit} onChange={f('creditLimit')} /></div>
-        <div className="space-y-2"><Label>Payment Terms (days)</Label><Input type="number" value={form.paymentTerms} onChange={f('paymentTerms')} /></div>
-      </div>
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2"><Label>Customer Type</Label>
-          <Select value={form.customerType} onValueChange={fs('customerType')}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="regular">Regular</SelectItem>
-              <SelectItem value="vip">VIP</SelectItem>
-              <SelectItem value="corporate">Corporate</SelectItem>
-              <SelectItem value="government">Government</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        {isEdit && <div className="space-y-2"><Label>Status</Label>
-          <Select value={form.status} onValueChange={fs('status')}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="active">Active</SelectItem>
-              <SelectItem value="inactive">Inactive</SelectItem>
-              <SelectItem value="suspended">Suspended</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>}
-      </div>
-      <Button type="submit" className="w-full">{isEdit ? 'Update Customer' : 'Create Customer'}</Button>
-    </form>
-  );
-
-  if (isLoading) return <div className="flex items-center justify-center h-96"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div></div>;
+  const f = (k: string, v: any) => setForm(prev => ({ ...prev, [k]: v }));
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div><h1 className="text-2xl font-bold text-slate-900">Customer Management</h1><p className="text-slate-500">Manage your customers and accounts</p></div>
-        <Button className="gap-2" onClick={() => { setForm({...emptyForm}); setIsAddOpen(true); }}><PlusIcon className="w-4 h-4" /> Add Customer</Button>
+    <div className="space-y-5">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-bold text-white">Customers</h1>
+          <p className="text-xs text-slate-500 mt-0.5">{total} total</p>
+        </div>
+        {canEdit && (
+          <button onClick={openCreate}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold rounded-lg transition-colors">
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4"/></svg>
+            New Customer
+          </button>
+        )}
       </div>
 
-      <div className="flex flex-col sm:flex-row gap-4">
-        <div className="relative flex-1"><SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" /><Input placeholder="Search by company, contact, or email..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-10" /></div>
-        <Select value={typeFilter} onValueChange={setTypeFilter}><SelectTrigger className="w-full sm:w-44"><SelectValue placeholder="All Types" /></SelectTrigger><SelectContent><SelectItem value="All Types">All Types</SelectItem><SelectItem value="regular">Regular</SelectItem><SelectItem value="vip">VIP</SelectItem><SelectItem value="corporate">Corporate</SelectItem><SelectItem value="government">Government</SelectItem></SelectContent></Select>
-        <Select value={statusFilter} onValueChange={setStatusFilter}><SelectTrigger className="w-full sm:w-40"><SelectValue placeholder="All Status" /></SelectTrigger><SelectContent><SelectItem value="All Status">All Status</SelectItem><SelectItem value="active">Active</SelectItem><SelectItem value="inactive">Inactive</SelectItem><SelectItem value="suspended">Suspended</SelectItem></SelectContent></Select>
+      {/* Filters */}
+      <div className="flex items-center gap-3">
+        <div className="relative flex-1 max-w-xs">
+          <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0"/></svg>
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search name, email, city..."
+            className="w-full pl-9 pr-4 py-2 text-xs bg-[#1a1d27] border border-white/5 rounded-lg text-white placeholder-slate-600 focus:outline-none focus:border-blue-500/40" />
+        </div>
+        <select value={filterType} onChange={e => setFilterType(e.target.value)}
+          className="px-3 py-2 text-xs bg-[#1a1d27] border border-white/5 rounded-lg text-white focus:outline-none">
+          <option value="">All types</option>
+          {['regular','vip','corporate','government'].map(t => <option key={t} value={t}>{t.charAt(0).toUpperCase()+t.slice(1)}</option>)}
+        </select>
+        <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
+          className="px-3 py-2 text-xs bg-[#1a1d27] border border-white/5 rounded-lg text-white focus:outline-none">
+          <option value="">All statuses</option>
+          {['active','inactive','suspended'].map(s => <option key={s} value={s}>{s.charAt(0).toUpperCase()+s.slice(1)}</option>)}
+        </select>
       </div>
 
-      <Card><CardContent className="p-0"><div className="overflow-x-auto"><Table>
-        <TableHeader><TableRow><TableHead>Company</TableHead><TableHead>Code</TableHead><TableHead>Type</TableHead><TableHead>Contact</TableHead><TableHead>City</TableHead><TableHead>Credit Limit</TableHead><TableHead>Status</TableHead><TableHead className="text-right">Actions</TableHead></TableRow></TableHeader>
-        <TableBody>
-          {Array.isArray(customers) && customers.map((c) => (
-            <TableRow key={c.id}>
-              <TableCell><div className="flex items-center gap-3"><div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center"><BuildingIcon className="w-5 h-5 text-slate-400" /></div><div><p className="font-medium text-slate-900">{c.company_name}</p><p className="text-sm text-slate-500">{c.email}</p></div></div></TableCell>
-              <TableCell><span className="font-mono text-sm">{c.customer_code}</span></TableCell>
-              <TableCell><Badge className={getTypeColor(c.customer_type)}>{c.customer_type}</Badge></TableCell>
-              <TableCell>{c.contact_person || '—'}</TableCell>
-              <TableCell>{c.city || '—'}</TableCell>
-              <TableCell>{c.credit_limit != null ? `SAR ${Number(c.credit_limit).toLocaleString()}` : '—'}</TableCell>
-              <TableCell><Badge className={getStatusColor(c.status)}>{c.status}</Badge></TableCell>
-              <TableCell className="text-right"><div className="flex items-center justify-end gap-2">
-                <Link to={`/customers/${c.id}`}><Button variant="ghost" size="icon"><EyeIcon className="w-4 h-4" /></Button></Link>
-                <Button variant="ghost" size="icon" onClick={() => openEdit(c)}><EditIcon className="w-4 h-4" /></Button>
-                <Button variant="ghost" size="icon" onClick={() => { setSelected(c); setIsDeleteOpen(true); }} className="text-red-600 hover:text-red-700"><TrashIcon className="w-4 h-4" /></Button>
-              </div></TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table></div></CardContent></Card>
+      {/* Table */}
+      <div className="bg-[#1a1d27] rounded-xl border border-white/5 overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="border-b border-white/5">
+                {['Code','Company','Contact','City','Type','Credit Limit','Payment Terms','Shipments','Revenue','Status',''].map(h => (
+                  <th key={h} className="px-4 py-3 text-left text-[11px] font-medium text-slate-500 whitespace-nowrap">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr><td colSpan={11} className="px-4 py-12 text-center text-slate-500">Loading...</td></tr>
+              ) : customers.length === 0 ? (
+                <tr><td colSpan={11} className="px-4 py-12 text-center text-slate-500">No customers found</td></tr>
+              ) : customers.map(c => (
+                <tr key={c.id} onClick={() => openDetail(c)}
+                  className="border-b border-white/5 hover:bg-white/5 cursor-pointer transition-colors">
+                  <td className="px-4 py-3 font-mono text-slate-400 text-[11px]">{c.customer_code}</td>
+                  <td className="px-4 py-3 text-white font-semibold max-w-[160px] truncate">{c.company_name}</td>
+                  <td className="px-4 py-3 text-slate-400">{c.contact_person || '—'}</td>
+                  <td className="px-4 py-3 text-slate-400">{c.city || '—'}</td>
+                  <td className="px-4 py-3">
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${TYPE_STYLE[c.customer_type] || TYPE_STYLE.regular}`}>{c.customer_type}</span>
+                  </td>
+                  <td className="px-4 py-3 text-slate-400 tabular-nums">{fmtSAR(c.credit_limit)}</td>
+                  <td className="px-4 py-3 text-slate-400">Net {c.payment_terms}d</td>
+                  <td className="px-4 py-3 text-white tabular-nums">{c.total_shipments || 0}</td>
+                  <td className="px-4 py-3 text-emerald-400 tabular-nums font-semibold">{fmtSAR(c.total_revenue)}</td>
+                  <td className="px-4 py-3">
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${STATUS_STYLE[c.status] || STATUS_STYLE.active}`}>{c.status}</span>
+                  </td>
+                  <td className="px-4 py-3"><svg className="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5l7 7-7 7"/></svg></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
 
-      {(!Array.isArray(customers) || customers.length === 0) && <div className="text-center py-12"><BuildingIcon className="w-16 h-16 mx-auto text-slate-300 mb-4" /><h3 className="text-lg font-medium text-slate-900">No customers found</h3><p className="text-slate-500">Add your first customer to get started</p></div>}
+      {/* ── DETAIL MODAL ── */}
+      {showDetail && selected && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-start justify-center pt-6 pb-4 px-4 overflow-y-auto">
+          <div className="w-full max-w-4xl bg-[#1a1d27] rounded-2xl border border-white/10 shadow-2xl">
+            {/* Header */}
+            <div className="flex items-start justify-between px-6 py-4 border-b border-white/5">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-blue-500/15 flex items-center justify-center">
+                  <span className="text-sm font-bold text-blue-400">{selected.company_name?.charAt(0)}</span>
+                </div>
+                <div>
+                  <h2 className="text-sm font-bold text-white">{selected.company_name}</h2>
+                  <p className="text-[11px] text-slate-500 mt-0.5">{selected.customer_code} · {selected.city}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                {canEdit && (
+                  <button onClick={() => { setShowDetail(false); openEdit(selected); }}
+                    className="px-3 py-1.5 text-xs bg-white/5 hover:bg-white/10 text-slate-300 rounded-lg border border-white/10 transition-colors">Edit</button>
+                )}
+                {canDelete && (
+                  <button onClick={() => handleDelete(selected.id)}
+                    className="px-3 py-1.5 text-xs bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg border border-red-500/20 transition-colors">Delete</button>
+                )}
+                <button onClick={() => setShowDetail(false)} className="p-1.5 text-slate-400 hover:text-white">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+              </div>
+            </div>
 
-      <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}><DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto"><DialogHeader><DialogTitle>Add New Customer</DialogTitle><DialogDescription>Fill in the details to create a new customer.</DialogDescription></DialogHeader><CustomerForm isEdit={false} /></DialogContent></Dialog>
-      <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}><DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto"><DialogHeader><DialogTitle>Edit Customer</DialogTitle><DialogDescription>Update customer information.</DialogDescription></DialogHeader><CustomerForm isEdit={true} /></DialogContent></Dialog>
-      <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Are you sure?</AlertDialogTitle><AlertDialogDescription>This will permanently delete customer {selected && `"${selected.company_name}"`}.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={handleDelete} className="bg-red-600 hover:bg-red-700">Delete</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
+            {/* Stats row */}
+            <div className="grid grid-cols-4 gap-3 px-6 py-4 border-b border-white/5">
+              {[
+                { label: 'Total Shipments', value: selected.stats?.total_shipments || 0, color: 'text-white' },
+                { label: 'Completed', value: selected.stats?.completed_shipments || 0, color: 'text-emerald-400' },
+                { label: 'Total Revenue', value: fmtSAR(selected.stats?.total_revenue), color: 'text-blue-400' },
+                { label: 'Avg Delivery', value: selected.stats?.avg_delivery_performance != null ? `${Number(selected.stats.avg_delivery_performance).toFixed(1)} days` : 'N/A', color: 'text-slate-300' },
+              ].map(s => (
+                <div key={s.label} className="bg-[#0f1117] rounded-lg p-3 border border-white/5">
+                  <p className="text-[11px] text-slate-500">{s.label}</p>
+                  <p className={`text-sm font-bold mt-1 ${s.color}`}>{s.value}</p>
+                </div>
+              ))}
+            </div>
+
+            {/* Tabs */}
+            <div className="flex gap-1 px-6 pt-4">
+              {(['overview','shipments','invoices','contacts'] as const).map(tab => (
+                <button key={tab} onClick={() => setDetailTab(tab)}
+                  className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors capitalize ${
+                    detailTab === tab ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'
+                  }`}>{tab}</button>
+              ))}
+            </div>
+
+            <div className="p-6 pt-4">
+              {/* Overview tab */}
+              {detailTab === 'overview' && (
+                <div className="grid grid-cols-2 gap-5">
+                  <div className="space-y-3">
+                    <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Contact Information</p>
+                    <div className="bg-[#0f1117] rounded-xl p-4 border border-white/5 grid grid-cols-2 gap-3">
+                      <Field label="Contact Person" value={selected.contact_person} />
+                      <Field label="Email" value={selected.email} />
+                      <Field label="Phone" value={selected.phone} />
+                      <Field label="Mobile" value={selected.mobile} />
+                      <Field label="City" value={selected.city} />
+                      <Field label="Country" value={selected.country} />
+                      <Field label="Address" value={selected.address} />
+                    </div>
+                  </div>
+                  <div className="space-y-3">
+                    <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Business Details</p>
+                    <div className="bg-[#0f1117] rounded-xl p-4 border border-white/5 grid grid-cols-2 gap-3">
+                      <Field label="Customer Type" value={selected.customer_type} />
+                      <Field label="Status" value={selected.status} />
+                      <Field label="VAT Number" value={selected.tax_number} />
+                      <Field label="CR Number" value={selected.cr_number} />
+                      <Field label="Credit Limit" value={fmtSAR(selected.credit_limit)} />
+                      <Field label="Payment Terms" value={`Net ${selected.payment_terms} days`} />
+                      <Field label="Member Since" value={fmtDate(selected.created_at)} />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Shipments tab */}
+              {detailTab === 'shipments' && (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="border-b border-white/5">
+                        {['Shipment #','From','To','Status','Date','Amount'].map(h => (
+                          <th key={h} className="py-2 pr-4 text-left text-[11px] font-medium text-slate-500">{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(selected.shipments || []).length === 0 ? (
+                        <tr><td colSpan={6} className="py-8 text-center text-slate-500">No shipments</td></tr>
+                      ) : (selected.shipments || []).map((s: any) => (
+                        <tr key={s.id} className="border-b border-white/5">
+                          <td className="py-2 pr-4 font-mono text-blue-400">{s.shipment_number}</td>
+                          <td className="py-2 pr-4 text-slate-400">{s.origin_city}</td>
+                          <td className="py-2 pr-4 text-slate-400">{s.destination_city}</td>
+                          <td className="py-2 pr-4"><span className="px-2 py-0.5 rounded-full text-[10px] bg-white/5 text-slate-300">{s.status}</span></td>
+                          <td className="py-2 pr-4 text-slate-400">{fmtDate(s.order_date)}</td>
+                          <td className="py-2 pr-4 text-emerald-400 font-semibold">{fmtSAR(s.final_amount || s.quoted_amount)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {/* Invoices tab */}
+              {detailTab === 'invoices' && (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="border-b border-white/5">
+                        {['Invoice #','Date','Due','Total','Paid','Balance','Status'].map(h => (
+                          <th key={h} className="py-2 pr-4 text-left text-[11px] font-medium text-slate-500">{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(selected.invoices || []).length === 0 ? (
+                        <tr><td colSpan={7} className="py-8 text-center text-slate-500">No invoices</td></tr>
+                      ) : (selected.invoices || []).map((inv: any) => (
+                        <tr key={inv.id} className="border-b border-white/5">
+                          <td className="py-2 pr-4 font-mono text-blue-400">{inv.invoice_number}</td>
+                          <td className="py-2 pr-4 text-slate-400">{fmtDate(inv.invoice_date)}</td>
+                          <td className="py-2 pr-4 text-slate-400">{fmtDate(inv.due_date)}</td>
+                          <td className="py-2 pr-4 text-white font-semibold">{fmtSAR(inv.total_amount)}</td>
+                          <td className="py-2 pr-4 text-emerald-400">{fmtSAR(inv.paid_amount)}</td>
+                          <td className="py-2 pr-4" style={{ color: Number(inv.balance_due) > 0 ? '#f87171' : '#34d399' }}>{fmtSAR(inv.balance_due)}</td>
+                          <td className="py-2 pr-4"><span className="px-2 py-0.5 rounded-full text-[10px] bg-white/5 text-slate-300">{inv.status}</span></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {/* Contacts tab */}
+              {detailTab === 'contacts' && (
+                <div className="space-y-2">
+                  {(selected.contacts || []).length === 0 ? (
+                    <p className="text-center text-slate-500 py-8 text-xs">No additional contacts</p>
+                  ) : (selected.contacts || []).map((ct: any) => (
+                    <div key={ct.id} className="flex items-center justify-between bg-[#0f1117] rounded-lg p-3 border border-white/5">
+                      <div>
+                        <p className="text-xs font-semibold text-white">{ct.name} {ct.is_primary ? <span className="text-[10px] text-amber-400 ml-1">Primary</span> : ''}</p>
+                        <p className="text-[11px] text-slate-500 mt-0.5">{ct.position} {ct.email ? `· ${ct.email}` : ''} {ct.phone ? `· ${ct.phone}` : ''}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── CREATE / EDIT FORM MODAL ── */}
+      {showForm && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-start justify-center pt-6 pb-4 px-4 overflow-y-auto">
+          <div className="w-full max-w-2xl bg-[#1a1d27] rounded-2xl border border-white/10 shadow-2xl">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-white/5">
+              <h2 className="text-sm font-bold text-white">{editId ? 'Edit Customer' : 'New Customer'}</h2>
+              <button onClick={() => setShowForm(false)} className="p-1 text-slate-400 hover:text-white">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg>
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="col-span-2"><FIn label="Company Name" required value={form.companyName} onChange={(e: any) => f('companyName', e.target.value)} placeholder="e.g. Saudi Aramco" /></div>
+                <FIn label="Contact Person" value={form.contactPerson} onChange={(e: any) => f('contactPerson', e.target.value)} placeholder="Primary contact name" />
+                <FIn label="Email" type="email" value={form.email} onChange={(e: any) => f('email', e.target.value)} placeholder="contact@company.com" />
+                <FIn label="Phone" value={form.phone} onChange={(e: any) => f('phone', e.target.value)} placeholder="+966 13 xxx xxxx" />
+                <FIn label="Mobile" value={form.mobile} onChange={(e: any) => f('mobile', e.target.value)} placeholder="+966 5xx xxx xxx" />
+                <FIn label="City" value={form.city} onChange={(e: any) => f('city', e.target.value)} placeholder="e.g. Riyadh" />
+                <FIn label="Country" value={form.country} onChange={(e: any) => f('country', e.target.value)} />
+                <div className="col-span-2"><FIn label="Address" value={form.address} onChange={(e: any) => f('address', e.target.value)} placeholder="Full address" /></div>
+                <FIn label="VAT Number" value={form.taxNumber} onChange={(e: any) => f('taxNumber', e.target.value)} placeholder="e.g. 300123456700003" />
+                <FIn label="CR Number" value={form.crNumber} onChange={(e: any) => f('crNumber', e.target.value)} placeholder="Commercial registration" />
+                <FIn label="Credit Limit (SAR)" type="number" value={form.creditLimit} onChange={(e: any) => f('creditLimit', e.target.value)} placeholder="0" />
+                <FSel label="Payment Terms (days)" value={form.paymentTerms} onChange={(e: any) => f('paymentTerms', e.target.value)}>
+                  {[15,30,45,60,90].map(t => <option key={t} value={t}>Net {t}</option>)}
+                </FSel>
+                <FSel label="Customer Type" value={form.customerType} onChange={(e: any) => f('customerType', e.target.value)}>
+                  {['regular','vip','corporate','government'].map(t => <option key={t} value={t}>{t.charAt(0).toUpperCase()+t.slice(1)}</option>)}
+                </FSel>
+                {editId && (
+                  <FSel label="Status" value={form.status} onChange={(e: any) => f('status', e.target.value)}>
+                    {['active','inactive','suspended'].map(s => <option key={s} value={s}>{s.charAt(0).toUpperCase()+s.slice(1)}</option>)}
+                  </FSel>
+                )}
+              </div>
+            </div>
+            <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-white/5">
+              <button onClick={() => setShowForm(false)} className="px-4 py-2 text-xs text-slate-400 hover:text-white transition-colors">Cancel</button>
+              <button onClick={handleSave} disabled={saving}
+                className="px-5 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-xs font-semibold rounded-lg transition-colors">
+                {saving ? 'Saving...' : editId ? 'Save Changes' : 'Create Customer'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
