@@ -205,7 +205,7 @@ export const shipmentsApi = {
   getAll: (params?: Record<string, string>) =>
     fetchApi<any>(`/shipments?${new URLSearchParams(params || {}).toString()}`),
   
-  getStats: () => fetchApi<any>('/shipments/stats'),
+  getStats: (period?: string) => fetchApi<any>(`/shipments/stats${period ? `?period=${period}` : ''}`),
   
   getById: (id: number) => fetchApi<any>(`/shipments/${id}`),
   
@@ -413,6 +413,16 @@ export const maintenanceApi = {
     }),
 };
 
+// Reports API
+export const reportsApi = {
+  getShipmentKPIs:       (period?: string) => fetchApi<any>(`/reports/shipment-kpis?period=${period || 'month'}`),
+  getRevenueByCustomer:  (period?: string) => fetchApi<any>(`/reports/revenue-by-customer?period=${period || 'month'}`),
+  getRoutePerformance:   (period?: string) => fetchApi<any>(`/reports/route-performance?period=${period || 'month'}`),
+  getFleetAlerts:        ()                => fetchApi<any>(`/reports/fleet-alerts`),
+  getCashFlowForecast:   ()                => fetchApi<any>(`/reports/cash-flow-forecast`),
+  getDriverPerformance:  (period?: string) => fetchApi<any>(`/reports/driver-performance?period=${period || 'month'}`),
+};
+
 // Export all APIs
 export const api = {
   auth: authApi,
@@ -424,6 +434,7 @@ export const api = {
   customers: customersApi,
   finance: financeApi,
   maintenance: maintenanceApi,
+  reports: reportsApi,
 };
 
 export default api;

@@ -12,7 +12,7 @@ import * as shipmentController    from '../controllers/shipmentController.js';
 import * as customerController    from '../controllers/customerController.js';
 import * as financeController     from '../controllers/financeController.js';
 import * as maintenanceController from '../controllers/maintenanceController.js';
-
+import * as reportsController     from '../controllers/reportsController.js';
 
 const router = express.Router();
 
@@ -303,5 +303,16 @@ router.get('/maintenance/:id',       authorize(['super_admin','admin','dispatche
 router.post('/maintenance',          authorize(['super_admin','admin']),                maintenanceController.createMaintenance);
 router.put('/maintenance/:id',       authorize(['super_admin','admin']),                maintenanceController.updateMaintenance);
 router.delete('/maintenance/:id',    authorize(['super_admin','admin']),                maintenanceController.deleteMaintenance);
+
+// ============================================
+// REPORTS & ANALYTICS  (6 period-aware endpoints)
+// ============================================
+const REPORT_ROLES = ['super_admin','admin','accountant','dispatcher'];
+router.get('/reports/shipment-kpis',        authorize(REPORT_ROLES), reportsController.getShipmentKPIs);
+router.get('/reports/revenue-by-customer',  authorize(REPORT_ROLES), reportsController.getRevenueByCustomer);
+router.get('/reports/route-performance',    authorize(REPORT_ROLES), reportsController.getRoutePerformance);
+router.get('/reports/fleet-alerts',         authorize(['super_admin','admin','dispatcher']), reportsController.getFleetAlerts);
+router.get('/reports/cash-flow-forecast',   authorize(['super_admin','admin','accountant']), reportsController.getCashFlowForecast);
+router.get('/reports/driver-performance',   authorize(REPORT_ROLES), reportsController.getDriverPeriodPerformance);
 
 export default router;
