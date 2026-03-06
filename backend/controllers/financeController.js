@@ -243,6 +243,7 @@ export async function createExpense(req, res) {
         const { expenseDate, category, description, amount, vehicleId, driverId, shipmentId, vendorName, receiptNumber, paymentMethod } = req.body;
         const expenseNumber = generateExpenseNumber();
 
+        // MySQL2 rejects undefined — coerce optional fields to null
         const result = await run(
             `INSERT INTO expenses (
                 expense_number, expense_date, category, description, amount,
@@ -250,7 +251,8 @@ export async function createExpense(req, res) {
                 payment_method, created_by
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [expenseNumber, expenseDate, category, description, amount,
-             vehicleId, driverId, shipmentId, vendorName, receiptNumber, paymentMethod, req.user.id]
+             vehicleId ?? null, driverId ?? null, shipmentId ?? null,
+             vendorName ?? null, receiptNumber ?? null, paymentMethod ?? null, req.user.id]
         );
 
         await run(
@@ -342,6 +344,46 @@ export async function getFinancialSummary(req, res) {
         res.json({ revenue, expensesByCategory, outstandingInvoices, agedReceivables, monthlyData });
     } catch (error) {
         console.error('Get financial summary error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+}
+
+// ============================================
+// DELIVERABLE SHIPMENTS (for invoice creation)
+// ============================================
+export async function getDeliverableShipments(req, res) {
+    try {
+        const shipments = await query(
+            `SELECT s.id, s.shipment_number, s.final_amount, s.quoted_amount,
+                    s.origin_city, s.destination_city, s.cargo_type,
+                    s.actual_delivery_date, s.transport_mode,
+                    c.id as customer_id, c.company_name as customer_name
+             FROM shipments s
+             JOIN customers c ON c.id = s.customer_id
+             WHERE s.status = 'delivered'
+               AND s.id NOT IN (SELECT shipment_id FROM invoices WHERE shipment_id IS NOT NULL)
+             ORDER BY s.actual_delivery_date DESC`
+        );
+        res.json(shipments);
+    } catch (error) {
+        console.error('Get deliverable shipments error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+}
+
+// ============================================
+// COMPANY SETTINGS (for PDF invoice header)
+// ============================================
+export async function getCompanySettings(req, res) {
+    try {
+        const rows = await query(
+            "SELECT setting_key, setting_value FROM settings WHERE setting_group IN ('company','finance')"
+        );
+        const settings = {};
+        rows.forEach(r => { settings[r.setting_key] = r.setting_value; });
+        res.json(settings);
+    } catch (error) {
+        console.error('Get company settings error:', error);
         res.status(500).json({ error: 'Internal server error' });
     }
 }

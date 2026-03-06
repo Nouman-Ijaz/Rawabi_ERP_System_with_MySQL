@@ -84,7 +84,7 @@ function StatCard({ label, value, sub, color, icon }: {
         </div>
         {sub && <span className="text-[11px] text-slate-500 bg-white/5 px-2 py-0.5 rounded-full">{sub}</span>}
       </div>
-      <p className="text-2xl font-bold tabular-nums" className="text-2xl font-bold text-white tabular-nums">{value}</p>
+      <p className="text-2xl font-bold text-white tabular-nums">{value}</p>
       <p className="text-xs text-slate-500 mt-1">{label}</p>
     </div>
   );
@@ -93,7 +93,7 @@ function StatCard({ label, value, sub, color, icon }: {
 function SectionTitle({ title, action }: { title: string; action?: JSX.Element }) {
   return (
     <div className="flex items-center justify-between mb-3">
-      <h2 className="text-sm font-semibold" className="text-sm font-semibold text-slate-200">{title}</h2>
+      <h2 className="text-sm font-semibold text-slate-200">{title}</h2>
       {action}
     </div>
   );

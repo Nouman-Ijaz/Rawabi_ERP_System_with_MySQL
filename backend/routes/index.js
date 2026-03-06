@@ -13,6 +13,7 @@ import * as customerController    from '../controllers/customerController.js';
 import * as financeController     from '../controllers/financeController.js';
 import * as maintenanceController from '../controllers/maintenanceController.js';
 
+
 const router = express.Router();
 
 // ============================================
@@ -288,7 +289,9 @@ router.put('/expenses/:id/approve',  authorize(['super_admin','admin']),        
 // ============================================
 // FINANCE — REPORTS & SUMMARY
 // ============================================
-router.get('/finance/summary',       authorize(['super_admin','admin','accountant']),   financeController.getFinancialSummary);
+router.get('/finance/summary',            authorize(['super_admin','admin','accountant']),   financeController.getFinancialSummary);
+router.get('/finance/deliverable-shipments', authorize(['super_admin','admin','accountant']),   financeController.getDeliverableShipments);
+router.get('/finance/company-settings',      authorize(['super_admin','admin','accountant']),   financeController.getCompanySettings);
 
 // ============================================
 // MAINTENANCE  (drivers cannot access)

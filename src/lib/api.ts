@@ -367,7 +367,21 @@ export const financeApi = {
   
   // Reports
   getFinancialSummary: (period?: string) =>
-    fetchApi<any>(`/finance/summary?${period ? `period=${period}` : ''}`),
+    fetchApi<any>(`/finance/summary${period ? `?period=${period}` : ''}`),
+
+  // Invoice creation helpers
+  getDeliverableShipments: () =>
+    fetchApi<any[]>('/finance/deliverable-shipments'),
+
+  getCompanySettings: () =>
+    fetchApi<any>('/finance/company-settings'),
+
+  // Update invoice (full edit)
+  updateInvoice: (id: number, data: any) =>
+    fetchApi<any>(`/invoices/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
 };
 
 // Maintenance API
