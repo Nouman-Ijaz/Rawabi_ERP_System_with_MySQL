@@ -102,12 +102,20 @@ export async function getShipmentKPIs(req, res) {
 
 // ─────────────────────────────────────────────────────────────────
 // 2. REVENUE BY CUSTOMER  — top 8 customers, period-aware
+//    month = current month, quarter = current quarter,
+//    year  = all-time (full history, not just calendar year)
 // ─────────────────────────────────────────────────────────────────
 export async function getRevenueByCustomer(req, res) {
     try {
         const { period = 'month' } = req.query;
-        // Filter on invoice_date — that is the billable event date, not shipment creation
-        const f = barePeriodFilter(period, 'i.invoice_date');
+
+        // year = all-time; month/quarter use the standard period filter
+        let filter;
+        if (period === 'year') {
+            filter = '1=1';  // all-time
+        } else {
+            filter = barePeriodFilter(period, 'i.invoice_date');
+        }
 
         const rows = await query(`
             SELECT
@@ -119,7 +127,7 @@ export async function getRevenueByCustomer(req, res) {
             FROM invoices i
             JOIN customers c ON c.id = i.customer_id
             WHERE i.status NOT IN ('cancelled', 'draft')
-              AND ${f}
+              AND ${filter}
             GROUP BY c.id, c.company_name, c.customer_type
             ORDER BY revenue DESC
             LIMIT 8

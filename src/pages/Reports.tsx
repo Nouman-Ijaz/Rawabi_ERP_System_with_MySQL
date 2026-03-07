@@ -226,7 +226,7 @@ export default function Reports() {
         <div>
           <h1 className="text-xl font-bold text-white">Reports & Analytics</h1>
           <p className="text-xs text-slate-500 mt-0.5">
-            {PL[period]}
+            {PL[period]} · period filter applies to: shipments, routes, drivers, customers
             {totalAlerts > 0 && <span className="ml-2 text-red-400 font-semibold">· {totalAlerts} fleet alert{totalAlerts > 1 ? 's' : ''}</span>}
             {criticalInvoices > 0 && <span className="ml-2 text-amber-400 font-semibold">· {criticalInvoices} invoice{criticalInvoices > 1 ? 's' : ''} critical overdue</span>}
           </p>
@@ -278,7 +278,7 @@ export default function Reports() {
         </div>
 
         {/* ── Revenue vs Expenses ── */}
-        <SectionCard title="Revenue vs Expenses" subtitle="Monthly trend · trailing 12 months">
+        <SectionCard title="Revenue vs Expenses" subtitle="Full history by invoice month · not period-filtered">
           {loadingFin ? <div className="h-52 animate-pulse bg-white/5 rounded-lg" /> :
            monthlyData.length === 0 ? <Empty /> : (
             <ResponsiveContainer width="100%" height={220}>
@@ -413,7 +413,7 @@ export default function Reports() {
         )}
 
         {/* ── Revenue by Customer ── */}
-        <SectionCard title="Revenue by Customer" subtitle={`Top 8 · by invoiced amount · ${PL[period]}`}>
+        <SectionCard title="Revenue by Customer" subtitle={`Top 8 · by invoiced amount · ${period === 'year' ? 'All time' : PL[period]}`}>
           {loadingShip ? <div className="h-52 animate-pulse bg-white/5 rounded-lg" /> :
            custChartData.length === 0 ? <Empty /> : (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">

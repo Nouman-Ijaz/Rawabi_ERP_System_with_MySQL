@@ -90,6 +90,11 @@ export default function Fleet() {
     location.pathname.startsWith('/drivers') ? 'drivers' : 'vehicles'
   );
 
+  // Sync tab when navigating between /vehicles and /drivers without unmounting
+  useEffect(() => {
+    setTab(location.pathname.startsWith('/drivers') ? 'drivers' : 'vehicles');
+  }, [location.pathname]);
+
   // Vehicles state
   const [vehicles, setVehicles]         = useState<any[]>([]);
   const [vLoading, setVLoading]         = useState(true);
