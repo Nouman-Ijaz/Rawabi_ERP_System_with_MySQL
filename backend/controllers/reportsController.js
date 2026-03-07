@@ -106,18 +106,19 @@ export async function getShipmentKPIs(req, res) {
 export async function getRevenueByCustomer(req, res) {
     try {
         const { period = 'month' } = req.query;
-        const f = barePeriodFilter(period, 's.order_date');
+        // Filter on invoice_date — that is the billable event date, not shipment creation
+        const f = barePeriodFilter(period, 'i.invoice_date');
 
         const rows = await query(`
             SELECT
                 c.id,
                 c.company_name,
                 c.customer_type,
-                COUNT(s.id)                           AS shipment_count,
-                COALESCE(SUM(s.final_amount), 0)      AS revenue
-            FROM shipments s
-            JOIN customers c ON c.id = s.customer_id
-            WHERE s.status = 'delivered'
+                COUNT(i.id)                           AS shipment_count,
+                COALESCE(SUM(i.total_amount), 0)      AS revenue
+            FROM invoices i
+            JOIN customers c ON c.id = i.customer_id
+            WHERE i.status NOT IN ('cancelled', 'draft')
               AND ${f}
             GROUP BY c.id, c.company_name, c.customer_type
             ORDER BY revenue DESC
@@ -145,34 +146,44 @@ export async function getRevenueByCustomer(req, res) {
 export async function getRoutePerformance(req, res) {
     try {
         const { period = 'month' } = req.query;
-        const f = barePeriodFilter(period, 'order_date');
+        const f = barePeriodFilter(period, 's.order_date');
 
         const rows = await query(`
             SELECT
-                origin_city,
-                destination_city,
-                CONCAT(origin_city, ' → ', destination_city)   AS route,
-                COUNT(*)                                         AS shipment_count,
-                COALESCE(SUM(final_amount),  0)                  AS total_revenue,
-                COALESCE(AVG(final_amount),  0)                  AS avg_revenue,
+                s.origin_city,
+                s.destination_city,
+                CONCAT(s.origin_city, ' → ', s.destination_city)   AS route,
+                COUNT(DISTINCT s.id)                                 AS shipment_count,
+                COALESCE(SUM(inv.inv_total), 0)                      AS total_revenue,
+                COALESCE(
+                    SUM(inv.inv_total) / NULLIF(COUNT(DISTINCT s.id), 0),
+                    0
+                )                                                    AS avg_revenue,
                 AVG(
-                  CASE WHEN status = 'delivered'
-                            AND actual_delivery_date IS NOT NULL
-                            AND actual_pickup_date   IS NOT NULL
-                       THEN DATEDIFF(actual_delivery_date, actual_pickup_date)
+                  CASE WHEN s.status = 'delivered'
+                            AND s.actual_delivery_date IS NOT NULL
+                            AND s.actual_pickup_date   IS NOT NULL
+                       THEN DATEDIFF(s.actual_delivery_date, s.actual_pickup_date)
                   END
-                )                                                AS avg_transit_days,
-                SUM(CASE WHEN status = 'delivered'
-                              AND actual_delivery_date IS NOT NULL
-                              AND requested_delivery_date IS NOT NULL
-                              AND actual_delivery_date <= requested_delivery_date
-                         THEN 1 ELSE 0 END)                      AS on_time_count,
-                SUM(CASE WHEN status = 'delivered'
-                              AND requested_delivery_date IS NOT NULL
-                         THEN 1 ELSE 0 END)                      AS deliveries_with_deadline
-            FROM shipments
+                )                                                    AS avg_transit_days,
+                SUM(CASE WHEN s.status = 'delivered'
+                              AND s.actual_delivery_date IS NOT NULL
+                              AND s.requested_delivery_date IS NOT NULL
+                              AND s.actual_delivery_date <= s.requested_delivery_date
+                         THEN 1 ELSE 0 END)                          AS on_time_count,
+                SUM(CASE WHEN s.status = 'delivered'
+                              AND s.requested_delivery_date IS NOT NULL
+                         THEN 1 ELSE 0 END)                          AS deliveries_with_deadline
+            FROM shipments s
+            LEFT JOIN (
+                SELECT shipment_id, SUM(total_amount) AS inv_total
+                FROM invoices
+                WHERE status NOT IN ('cancelled', 'draft')
+                  AND shipment_id IS NOT NULL
+                GROUP BY shipment_id
+            ) inv ON inv.shipment_id = s.id
             WHERE ${f}
-            GROUP BY origin_city, destination_city
+            GROUP BY s.origin_city, s.destination_city
             ORDER BY shipment_count DESC
             LIMIT 8
         `);
@@ -348,8 +359,9 @@ export async function getDriverPeriodPerformance(req, res) {
 
                 /* Current period */
                 COUNT(CASE WHEN s.id IS NOT NULL AND ${f.current} THEN 1 END) AS current_trips,
-                COALESCE(SUM(CASE WHEN ${f.current} THEN s.final_amount ELSE NULL END), 0)
-                                                                               AS current_revenue,
+                COALESCE(SUM(CASE WHEN ${f.current}
+                    THEN COALESCE(inv.inv_total, s.final_amount, s.quoted_amount)
+                    ELSE NULL END), 0)                                         AS current_revenue,
                 SUM(CASE WHEN ${f.current}
                               AND s.actual_delivery_date IS NOT NULL
                               AND s.requested_delivery_date IS NOT NULL
@@ -361,14 +373,22 @@ export async function getDriverPeriodPerformance(req, res) {
 
                 /* Previous period */
                 COUNT(CASE WHEN s.id IS NOT NULL AND ${f.prev} THEN 1 END)    AS prev_trips,
-                COALESCE(SUM(CASE WHEN ${f.prev} THEN s.final_amount ELSE NULL END), 0)
-                                                                               AS prev_revenue
+                COALESCE(SUM(CASE WHEN ${f.prev}
+                    THEN COALESCE(inv.inv_total, s.final_amount, s.quoted_amount)
+                    ELSE NULL END), 0)                                         AS prev_revenue
 
             FROM drivers d
             JOIN employees e ON e.id = d.employee_id
             LEFT JOIN shipments s
                    ON s.driver_id = d.id
                   AND s.status = 'delivered'
+            LEFT JOIN (
+                SELECT shipment_id, SUM(total_amount) AS inv_total
+                FROM invoices
+                WHERE status NOT IN ('cancelled', 'draft')
+                  AND shipment_id IS NOT NULL
+                GROUP BY shipment_id
+            ) inv ON inv.shipment_id = s.id
             LEFT JOIN vehicle_assignments va
                    ON va.driver_id = d.id
                   AND va.unassigned_date IS NULL

@@ -286,31 +286,36 @@ export async function getFinancialSummary(req, res) {
     try {
         const { period = 'month' } = req.query;
 
+        // invFilter is kept for future period-scoped sections.
+        // Top-level KPIs and expense breakdown are INTENTIONALLY all-time:
+        // they must match the Invoices and Expenses pages exactly.
         let invFilter = '';
-        let expFilter = '';
         if (period === 'month') {
             invFilter = "DATE_FORMAT(invoice_date, '%Y-%m') = DATE_FORMAT(NOW(), '%Y-%m')";
-            expFilter = "DATE_FORMAT(expense_date, '%Y-%m') = DATE_FORMAT(NOW(), '%Y-%m')";
         } else if (period === 'quarter') {
             invFilter = "QUARTER(invoice_date) = QUARTER(NOW()) AND YEAR(invoice_date) = YEAR(NOW())";
-            expFilter = "QUARTER(expense_date) = QUARTER(NOW()) AND YEAR(expense_date) = YEAR(NOW())";
         } else if (period === 'year') {
             invFilter = "YEAR(invoice_date) = YEAR(NOW())";
-            expFilter = "YEAR(expense_date) = YEAR(NOW())";
         } else {
             invFilter = '1=1';
-            expFilter = '1=1';
         }
 
         const [revenue, expensesByCategory, outstandingInvoices, agedReceivables, monthlyData] = await Promise.all([
+            // All-time financial health — no period filter.
+            // Excludes only cancelled invoices (they were voided, not real obligations).
             get(`SELECT
-                    SUM(total_amount)  as total_invoiced,
-                    SUM(paid_amount)   as total_collected,
-                    SUM(balance_due)   as total_outstanding
-                 FROM invoices WHERE ${invFilter}`),
+                    COALESCE(SUM(total_amount), 0) as total_invoiced,
+                    COALESCE(SUM(paid_amount),  0) as total_collected,
+                    COALESCE(SUM(balance_due),  0) as total_outstanding
+                 FROM invoices
+                 WHERE status != 'cancelled'`),
+            // All-time expense breakdown — no date filter.
+            // CURDATE() used (not NOW()) to avoid DATETIME vs DATE boundary issue.
             query(`SELECT category, SUM(amount) as total_expenses, COUNT(*) as count
-                   FROM expenses WHERE status = 'approved' AND ${expFilter}
-                   GROUP BY category`),
+                   FROM expenses
+                   WHERE status IN ('approved', 'paid')
+                   GROUP BY category
+                   ORDER BY total_expenses DESC`),
             query(`SELECT i.*, c.company_name as customer_name
                    FROM invoices i
                    JOIN customers c ON c.id = i.customer_id
@@ -344,7 +349,7 @@ export async function getFinancialSummary(req, res) {
                      SELECT DATE_FORMAT(expense_date, '%Y-%m') as month,
                             SUM(amount) as expenses
                      FROM expenses
-                     WHERE status = 'approved'
+                     WHERE status IN ('approved', 'paid')
                      GROUP BY DATE_FORMAT(expense_date, '%Y-%m')
                    ) exp ON exp.month = inv.month
                    ORDER BY inv.month DESC LIMIT 12`),

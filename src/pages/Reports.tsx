@@ -249,14 +249,15 @@ export default function Reports() {
 
       <div id="reports-content" className="space-y-5">
 
-        {/* ── Fin KPIs ── */}
+        {/* ── Fin KPIs — all-time, not period-filtered ── */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          <KPI label="Total Invoiced"  value={loadingFin ? '…' : fmtSAR(rev.total_invoiced)} />
-          <KPI label="Collected"       value={loadingFin ? '…' : fmtSAR(rev.total_collected)} color="text-emerald-400" />
+          <KPI label="Total Invoiced"  value={loadingFin ? '…' : fmtSAR(rev.total_invoiced)}  sub="All time" />
+          <KPI label="Collected"       value={loadingFin ? '…' : fmtSAR(rev.total_collected)} color="text-emerald-400" sub="All time" />
           <KPI label="Outstanding"     value={loadingFin ? '…' : fmtSAR(rev.total_outstanding)}
-            color={Number(rev.total_outstanding) > 0 ? 'text-amber-400' : 'text-emerald-400'} />
+            color={Number(rev.total_outstanding) > 0 ? 'text-amber-400' : 'text-emerald-400'} sub="Balance due" />
           <KPI label="Collection Rate" value={loadingFin ? '…' : (collectionRate ? `${collectionRate}%` : '—')}
-            color={collectionRate && Number(collectionRate) >= 90 ? 'text-emerald-400' : collectionRate && Number(collectionRate) >= 70 ? 'text-amber-400' : 'text-red-400'} />
+            color={collectionRate && Number(collectionRate) >= 90 ? 'text-emerald-400' : collectionRate && Number(collectionRate) >= 70 ? 'text-amber-400' : 'text-red-400'}
+            sub="All time" />
         </div>
 
         {/* ── Shipment KPIs ── */}
@@ -297,7 +298,7 @@ export default function Reports() {
 
         {/* ── Expenses + Aged Receivables ── */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-          <SectionCard title="Expenses by Category" subtitle={PL[period]}>
+          <SectionCard title="Expenses by Category" subtitle="All time · approved & paid">
             {loadingFin ? <div className="h-40 animate-pulse bg-white/5 rounded-lg" /> :
              expByCategory.length === 0 ? <Empty msg="No approved expenses this period" /> : (
               <div className="flex items-center gap-5">
@@ -412,7 +413,7 @@ export default function Reports() {
         )}
 
         {/* ── Revenue by Customer ── */}
-        <SectionCard title="Revenue by Customer" subtitle={`Top 8 · delivered shipments · ${PL[period]}`}>
+        <SectionCard title="Revenue by Customer" subtitle={`Top 8 · by invoiced amount · ${PL[period]}`}>
           {loadingShip ? <div className="h-52 animate-pulse bg-white/5 rounded-lg" /> :
            custChartData.length === 0 ? <Empty /> : (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
