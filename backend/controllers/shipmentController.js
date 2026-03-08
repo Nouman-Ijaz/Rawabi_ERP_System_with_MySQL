@@ -483,6 +483,7 @@ export async function trackShipment(req, res) {
     try {
         const { trackingNumber } = req.params;
 
+        // Accept both the short tracking code (TRK...) and the full shipment number (RWB-YYYY-NNN)
         const shipment = await get(
             `SELECT s.*,
                     c.company_name as customer_name,
@@ -493,8 +494,8 @@ export async function trackShipment(req, res) {
              LEFT JOIN drivers d ON d.id = s.driver_id
              LEFT JOIN employees e ON e.id = d.employee_id
              LEFT JOIN vehicles v ON v.id = s.vehicle_id
-             WHERE s.tracking_number = ?`,
-            [trackingNumber]
+             WHERE s.tracking_number = ? OR s.shipment_number = ?`,
+            [trackingNumber, trackingNumber]
         );
 
         if (!shipment) return res.status(404).json({ error: 'Shipment not found' });

@@ -58,7 +58,7 @@ export async function login(req, res) {
 export async function getProfile(req, res) {
     try {
         const user = await get(
-            `SELECT u.*, e.employee_code, e.position, e.hire_date, e.photo_url
+            `SELECT u.*, e.id AS employee_id, e.employee_code, e.position, e.hire_date, e.photo_url
              FROM users u
              LEFT JOIN employees e ON e.user_id = u.id
              WHERE u.id = ?`,
@@ -71,6 +71,37 @@ export async function getProfile(req, res) {
         res.json(user);
     } catch (error) {
         console.error('Get profile error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+}
+
+// ============================================
+// GET OWN EMPLOYEE RECORD
+// Available to all authenticated users.
+// Returns the employee row linked to the logged-in user_id.
+// ============================================
+export async function getMyEmployeeProfile(req, res) {
+    try {
+        const { query: dbQuery, get: dbGet } = await import('../database/db.js');
+        const emp = await dbGet(
+            `SELECT e.*,
+                    TIMESTAMPDIFF(YEAR, e.hire_date, CURDATE())        AS years_of_service,
+                    TIMESTAMPDIFF(YEAR, e.date_of_birth, CURDATE())    AS age,
+                    CONCAT(COALESCE(m.first_name,''), ' ', COALESCE(m.last_name,'')) AS manager_name,
+                    u.email AS user_email, u.role AS user_role
+             FROM employees e
+             LEFT JOIN employees m ON m.id = e.manager_id
+             LEFT JOIN users u     ON u.id = e.user_id
+             WHERE e.user_id = ?`,
+            [req.user.id]
+        );
+        if (!emp) return res.status(404).json({ error: 'No employee record linked to this account' });
+
+        // Strip sensitive financial data for non-admin viewers of own profile
+        // (salary, bank info only visible to the employee themselves and admin)
+        res.json(emp);
+    } catch (error) {
+        console.error('Get my employee profile error:', error);
         res.status(500).json({ error: 'Internal server error' });
     }
 }

@@ -35,7 +35,7 @@ export async function createPeriod(req, res) {
             'INSERT INTO payroll_periods (period_month,period_year,status,payment_date,notes,created_by) VALUES (?,?,?,?,?,?)',
             [m, y, 'draft', paymentDate||null, notes||null, req.user.id]
         );
-        const period = await get('SELECT * FROM payroll_periods WHERE id=?', [result.lastID || result.insertId]);
+        const period = await get('SELECT * FROM payroll_periods WHERE id=?', [result.id]);
         res.status(201).json(period);
     } catch (e) { console.error(e); res.status(500).json({ error: 'Internal server error' }); }
 }
@@ -333,7 +333,7 @@ export async function createLoan(req, res) {
              disbursedDate, reason||null, parseFloat(loanAmount), notes||null,
              req.user.id, req.user.id]
         );
-        const loan = await get('SELECT * FROM employee_loans WHERE id=?', [result.lastID || result.insertId]);
+        const loan = await get('SELECT * FROM employee_loans WHERE id=?', [result.id]);
         res.status(201).json(loan);
     } catch (e) { console.error(e); res.status(500).json({ error: 'Internal server error' }); }
 }
@@ -373,4 +373,80 @@ async function updatePeriodTotals(periodId) {
         'UPDATE payroll_periods SET employee_count=?,total_gross=?,total_deductions=?,total_net=? WHERE id=?',
         [totals.cnt||0, totals.gross||0, totals.deductions||0, totals.net||0, periodId]
     );
+}
+
+// ── EMPLOYEE: GET OWN SLIPS ──────────────────────────────────────────
+export async function getMySlips(req, res) {
+    try {
+        const emp = await get('SELECT id FROM employees WHERE user_id=?', [req.user.id]);
+        if (!emp) return res.status(404).json({ error: 'No employee record linked to your account' });
+
+        // Super admin sees all slips including drafts; everyone else only sees approved/paid
+        const draftFilter = req.user.role === 'super_admin' ? '' : "AND pp.status IN ('approved','paid')";
+
+        const slips = await query(
+            `SELECT ps.*,
+                    pp.period_month, pp.period_year, pp.payment_date, pp.status AS period_status,
+                    e.first_name, e.last_name, e.employee_code, e.department, e.position,
+                    e.bank_name, e.bank_iban, e.nationality
+             FROM payroll_slips ps
+             JOIN payroll_periods pp ON pp.id = ps.payroll_period_id
+             JOIN employees e ON e.id = ps.employee_id
+             WHERE ps.employee_id = ? ${draftFilter}
+             ORDER BY pp.period_year DESC, pp.period_month DESC`,
+            [emp.id]
+        );
+        res.json(slips);
+    } catch (e) { console.error(e); res.status(500).json({ error: 'Internal server error' }); }
+}
+
+// ── GET SINGLE SLIP FOR PRINT (any admin or the slip's own employee) ─
+export async function getSlipById(req, res) {
+    try {
+        const { id } = req.params;
+        const slip = await get(
+            `SELECT ps.*,
+                    pp.period_month, pp.period_year, pp.payment_date, pp.status AS period_status,
+                    e.first_name, e.last_name, e.employee_code, e.department, e.position,
+                    e.bank_name, e.bank_iban, e.nationality, e.phone, e.email
+             FROM payroll_slips ps
+             JOIN payroll_periods pp ON pp.id = ps.payroll_period_id
+             JOIN employees e ON e.id = ps.employee_id
+             WHERE ps.id = ?`, [id]
+        );
+        if (!slip) return res.status(404).json({ error: 'Slip not found' });
+
+        // Non-admins can only view their own slip
+        if (!['super_admin','admin','accountant'].includes(req.user.role)) {
+            const emp = await get('SELECT id FROM employees WHERE user_id=?', [req.user.id]);
+            if (!emp || emp.id !== slip.employee_id) {
+                return res.status(403).json({ error: 'Access denied' });
+            }
+        }
+        res.json(slip);
+    } catch (e) { console.error(e); res.status(500).json({ error: 'Internal server error' }); }
+}
+
+// ── YTD SUMMARY PER EMPLOYEE ─────────────────────────────────────────
+export async function getEmployeeYTD(req, res) {
+    try {
+        const { employeeId } = req.params;
+        const year = req.query.year || new Date().getFullYear();
+        const summary = await get(
+            `SELECT
+                COUNT(*) AS months_paid,
+                SUM(ps.gross_salary) AS ytd_gross,
+                SUM(ps.net_salary) AS ytd_net,
+                SUM(ps.gosi_employee) AS ytd_gosi,
+                SUM(ps.loan_deduction) AS ytd_loan_deductions,
+                SUM(ps.bonus_amount) AS ytd_bonus,
+                SUM(ps.overtime_amount) AS ytd_overtime,
+                SUM(ps.total_deductions) AS ytd_deductions
+             FROM payroll_slips ps
+             JOIN payroll_periods pp ON pp.id = ps.payroll_period_id
+             WHERE ps.employee_id = ? AND pp.period_year = ? AND pp.status IN ('paid','approved')`,
+            [employeeId, year]
+        );
+        res.json(summary);
+    } catch (e) { console.error(e); res.status(500).json({ error: 'Internal server error' }); }
 }

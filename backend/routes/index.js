@@ -36,6 +36,7 @@ router.get('/dashboard/stats', authController.getDashboardStats);
 // PROFILE  (all roles)
 // ============================================
 router.get('/profile',                  authController.getProfile);
+router.get('/profile/employee',         authController.getMyEmployeeProfile);
 router.put('/profile',                  authController.updateProfile);
 router.put('/profile/change-password',  authController.changePassword);
 
@@ -66,15 +67,15 @@ router.delete('/employees/:id',      authorize(['super_admin','admin']),        
 // ============================================
 // VEHICLES  (drivers can read their own)
 // ============================================
-router.get('/vehicles',              authorize(['super_admin','admin','office_admin','dispatcher','accountant']), vehicleController.getAllVehicles);
-router.get('/vehicles/summary',      authorize(['super_admin','admin','dispatcher','accountant']),               vehicleController.getVehicleSummary);
-router.get('/vehicles/:id',          authorize(['super_admin','admin','office_admin','dispatcher','accountant']), vehicleController.getVehicleById);
+router.get('/vehicles',              authorize(['super_admin','admin','office_admin','dispatcher']), vehicleController.getAllVehicles);
+router.get('/vehicles/summary',      authorize(['super_admin','admin','dispatcher']),               vehicleController.getVehicleSummary);
+router.get('/vehicles/:id',          authorize(['super_admin','admin','office_admin','dispatcher']), vehicleController.getVehicleById);
 router.post('/vehicles',             authorize(['super_admin','admin']),                                         vehicleController.createVehicle);
 router.put('/vehicles/:id',          authorize(['super_admin','admin']),                                         vehicleController.updateVehicle);
 router.delete('/vehicles/:id',       authorize(['super_admin','admin']),                                         vehicleController.deleteVehicle);
 router.post('/vehicles/:id/assign-driver',   authorize(['super_admin','admin','dispatcher']), vehicleController.assignDriver);
 router.post('/vehicles/:id/unassign-driver', authorize(['super_admin','admin','dispatcher']), vehicleController.unassignDriver);
-router.post('/vehicles/:id/fuel',    authorize(['super_admin','admin','accountant']),                            vehicleController.addFuelRecord);
+router.post('/vehicles/:id/fuel',    authorize(['super_admin','admin','dispatcher']),                            vehicleController.addFuelRecord);
 
 // ============================================
 // DRIVERS
@@ -329,6 +330,9 @@ const PAY_VIEW = ['super_admin','admin','accountant'];
 const PAY_EDIT = ['super_admin','admin'];
 
 router.get('/payroll/stats',                     authorize(PAY_VIEW), payrollController.getPayrollStats);
+router.get('/payroll/my-slips',                  authorize([]), payrollController.getMySlips);
+router.get('/payroll/slips/:id',                 authorize([]), payrollController.getSlipById);
+router.get('/payroll/employee/:employeeId/ytd',  authorize(PAY_VIEW), payrollController.getEmployeeYTD);
 router.get('/payroll/periods',                   authorize(PAY_VIEW), payrollController.getAllPeriods);
 router.post('/payroll/periods',                  authorize(PAY_EDIT), payrollController.createPeriod);
 router.get('/payroll/periods/:id',               authorize(PAY_VIEW), payrollController.getPeriodById);
