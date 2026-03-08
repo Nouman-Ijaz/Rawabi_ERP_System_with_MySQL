@@ -201,10 +201,19 @@ export async function getDashboardStats(req, res) {
                    JOIN customers c ON s.customer_id = c.id
                    WHERE DATE(s.created_at) = CURDATE()
                    ORDER BY s.created_at DESC LIMIT 5`),
-            query(`SELECT al.*, u.first_name, u.last_name
-                   FROM activity_logs al
-                   LEFT JOIN users u ON al.user_id = u.id
-                   ORDER BY al.created_at DESC LIMIT 10`),
+            query(
+                req.user.role === 'super_admin'
+                    ? `SELECT al.*, u.first_name, u.last_name
+                       FROM activity_logs al
+                       LEFT JOIN users u ON al.user_id = u.id
+                       ORDER BY al.created_at DESC LIMIT 10`
+                    : `SELECT al.*, u.first_name, u.last_name
+                       FROM activity_logs al
+                       LEFT JOIN users u ON al.user_id = u.id
+                       WHERE al.user_id = ?
+                       ORDER BY al.created_at DESC LIMIT 10`,
+                req.user.role === 'super_admin' ? [] : [req.user.id]
+            ),
             query(`SELECT status, COUNT(*) as count FROM shipments GROUP BY status`),
             query(`SELECT status, COUNT(*) as count FROM drivers GROUP BY status`),
             query(`SELECT e.first_name, e.last_name, d.rating, d.total_trips, d.status as driver_status

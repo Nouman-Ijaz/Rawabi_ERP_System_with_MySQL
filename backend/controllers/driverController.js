@@ -380,3 +380,37 @@ export async function getAvailableDrivers(req, res) {
         res.status(500).json({ error: 'Internal server error' });
     }
 }
+
+// ── UPDATE DRIVER RATING (super_admin + admin only) ─────────────────
+export async function updateDriverRating(req, res) {
+    try {
+        const { id } = req.params;
+        const { rating, notes } = req.body;
+
+        if (rating === undefined || rating === null) {
+            return res.status(400).json({ error: 'Rating is required' });
+        }
+        const r = parseFloat(rating);
+        if (isNaN(r) || r < 1 || r > 5) {
+            return res.status(400).json({ error: 'Rating must be between 1.0 and 5.0' });
+        }
+
+        const driver = await get('SELECT * FROM drivers WHERE id = ?', [id]);
+        if (!driver) return res.status(404).json({ error: 'Driver not found' });
+
+        await run(
+            'UPDATE drivers SET rating = ? WHERE id = ?',
+            [Math.round(r * 10) / 10, id]
+        );
+
+        await run(
+            'INSERT INTO activity_logs (user_id, action, entity_type, entity_id, new_values) VALUES (?,?,?,?,?)',
+            [req.user.id, 'UPDATE_DRIVER_RATING', 'driver', id, JSON.stringify({ rating: r, notes })]
+        );
+
+        res.json({ message: 'Rating updated successfully', rating: r });
+    } catch (error) {
+        console.error('Update driver rating error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+}

@@ -1,154 +1,386 @@
-import { useEffect, useState } from 'react';
-import { maintenanceApi } from '@/lib/api';
-import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { useEffect, useState, useCallback } from 'react';
+import { maintenanceApi, vehiclesApi } from '@/lib/api';
+import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 
-interface MaintenanceRecord {
-  id: number;
-  vehicle_plate: string;
-  vehicle_type: string;
-  maintenance_type: string;
-  service_date: string;
-  description: string;
-  service_provider?: string;
-  cost?: number;
-  status: string;
-  next_service_date?: string;
-  next_service_km?: number;
-}
+const fmtDate = (d: string) => d ? new Date(d).toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' }) : '—';
+const fmtSAR  = (n: any)    => `SAR ${Number(n || 0).toLocaleString('en-US', { minimumFractionDigits:0, maximumFractionDigits:0 })}`;
 
-function getStatusColor(status: string) {
-  const colors: Record<string, string> = {
-    scheduled: 'bg-blue-100 text-blue-800',
-    in_progress: 'bg-yellow-100 text-yellow-800',
-    completed: 'bg-green-100 text-green-800',
-    cancelled: 'bg-gray-100 text-gray-800',
+const STATUS_STYLE: Record<string, string> = {
+  scheduled:   'bg-blue-500/15 text-blue-400',
+  in_progress: 'bg-amber-500/15 text-amber-400',
+  completed:   'bg-emerald-500/15 text-emerald-400',
+  cancelled:   'bg-slate-500/15 text-slate-400',
+};
+const TYPE_STYLE: Record<string, string> = {
+  routine:      'bg-blue-500/15 text-blue-400',
+  repair:       'bg-red-500/15 text-red-400',
+  inspection:   'bg-purple-500/15 text-purple-400',
+  tire_change:  'bg-amber-500/15 text-amber-400',
+  oil_change:   'bg-cyan-500/15 text-cyan-400',
+  other:        'bg-slate-500/15 text-slate-400',
+};
+const TYPES    = ['routine','repair','inspection','tire_change','oil_change','other'];
+const STATUSES = ['scheduled','in_progress','completed','cancelled'];
+
+const EMPTY_FORM = {
+  vehicleId:'', maintenanceType:'routine', serviceDate:'', description:'',
+  serviceProvider:'', cost:'', partsReplaced:'', nextServiceDate:'', nextServiceKm:'',
+  notes:'', status:'scheduled', completionDate:'',
+};
+
+function Icon({ name, className }: { name:string; className?:string }) {
+  const cls = className || 'w-4 h-4';
+  const icons: Record<string, JSX.Element> = {
+    wrench:   <svg className={cls} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>,
+    plus:     <svg className={cls} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4v16m8-8H4"/></svg>,
+    edit:     <svg className={cls} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>,
+    trash:    <svg className={cls} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>,
+    x:        <svg className={cls} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M6 18L18 6M6 6l12 12"/></svg>,
+    alert:    <svg className={cls} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>,
+    truck:    <svg className={cls} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 17a2 2 0 11-4 0 2 2 0 014 0zM19 17a2 2 0 11-4 0 2 2 0 014 0z"/><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0"/></svg>,
   };
-  return colors[status] || 'bg-gray-100 text-gray-800';
+  return icons[name] || <span />;
 }
 
-function getTypeColor(type: string) {
-  const colors: Record<string, string> = {
-    routine: 'bg-blue-100 text-blue-800',
-    repair: 'bg-red-100 text-red-800',
-    inspection: 'bg-purple-100 text-purple-800',
-    tire_change: 'bg-orange-100 text-orange-800',
-    oil_change: 'bg-green-100 text-green-800',
-    other: 'bg-gray-100 text-gray-800',
-  };
-  return colors[type] || 'bg-gray-100 text-gray-800';
-}
-
-function WrenchIcon(props: React.SVGProps<SVGSVGElement>) {
+function Field({ label, required, children }: { label:string; required?:boolean; children:React.ReactNode }) {
   return (
-    <svg {...props} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-    </svg>
+    <div>
+      <label className="block text-[11px] font-medium text-slate-400 mb-1">
+        {label}{required && <span className="text-red-400 ml-0.5">*</span>}
+      </label>
+      {children}
+    </div>
   );
 }
 
-function formatCurrency(amount?: number) {
-  if (!amount) return '-';
-  return new Intl.NumberFormat('en-SA', {
-    style: 'currency',
-    currency: 'SAR',
-  }).format(amount);
-}
+const inp = "w-full bg-[#0f1117] border border-white/10 rounded-lg px-3 py-2 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/20 transition-colors [color-scheme:dark]";
+const sel = inp + " appearance-none cursor-pointer";
 
 export default function Maintenance() {
-  const [records, setRecords] = useState<MaintenanceRecord[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const { hasPermission } = useAuth();
+  const canEdit = hasPermission(['super_admin', 'admin']);
 
-  useEffect(() => {
-    loadMaintenance();
-  }, []);
+  const [records,    setRecords]    = useState<any[]>([]);
+  const [summary,    setSummary]    = useState<any>(null);
+  const [upcoming,   setUpcoming]   = useState<any>(null);
+  const [vehicles,   setVehicles]   = useState<any[]>([]);
+  const [loading,    setLoading]    = useState(true);
+  const [statusFilt, setStatusFilt] = useState('');
+  const [typeFilt,   setTypeFilt]   = useState('');
+  const [showForm,   setShowForm]   = useState(false);
+  const [editId,     setEditId]     = useState<number | null>(null);
+  const [saving,     setSaving]     = useState(false);
+  const [deleteId,   setDeleteId]   = useState<number | null>(null);
+  const [form,       setForm]       = useState({ ...EMPTY_FORM });
 
-  const loadMaintenance = async () => {
+  const load = useCallback(async () => {
+    setLoading(true);
     try {
-      const data = await maintenanceApi.getAll();
-      setRecords(data);
-    } catch (error) {
-      toast.error('Failed to load maintenance records');
-    } finally {
-      setIsLoading(false);
+      const params: Record<string, string> = {};
+      if (statusFilt) params.status = statusFilt;
+      if (typeFilt)   params.type   = typeFilt;
+      const [recs, sum, up, vehs] = await Promise.all([
+        maintenanceApi.getAll(params),
+        maintenanceApi.getSummary(),
+        maintenanceApi.getUpcoming(),
+        vehiclesApi.getAll(),
+      ]);
+      setRecords(Array.isArray(recs) ? recs : recs.data || []);
+      setSummary(sum);
+      setUpcoming(up);
+      setVehicles(Array.isArray(vehs) ? vehs : vehs.data || []);
+    } catch { toast.error('Failed to load maintenance records'); }
+    finally { setLoading(false); }
+  }, [statusFilt, typeFilt]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const openCreate = () => { setEditId(null); setForm({ ...EMPTY_FORM }); setShowForm(true); };
+  const openEdit   = (r: any) => {
+    setEditId(r.id);
+    setForm({
+      vehicleId:        String(r.vehicle_id || ''),
+      maintenanceType:  r.maintenance_type || 'routine',
+      serviceDate:      r.service_date?.slice(0, 10) || '',
+      completionDate:   r.completion_date?.slice(0, 10) || '',
+      description:      r.description || '',
+      serviceProvider:  r.service_provider || '',
+      cost:             r.cost || '',
+      partsReplaced:    r.parts_replaced || '',
+      nextServiceDate:  r.next_service_date?.slice(0, 10) || '',
+      nextServiceKm:    r.next_service_km || '',
+      notes:            r.notes || '',
+      status:           r.status || 'scheduled',
+    });
+    setShowForm(true);
+  };
+  const closeForm = () => { setShowForm(false); setEditId(null); };
+
+  const save = async () => {
+    if (!form.vehicleId || !form.serviceDate || !form.description) {
+      toast.error('Vehicle, service date and description are required');
+      return;
     }
+    setSaving(true);
+    try {
+      const payload = {
+        vehicleId:       form.vehicleId,
+        maintenanceType: form.maintenanceType,
+        serviceDate:     form.serviceDate,
+        completionDate:  form.completionDate || null,
+        description:     form.description,
+        serviceProvider: form.serviceProvider || null,
+        cost:            form.cost ? Number(form.cost) : null,
+        partsReplaced:   form.partsReplaced || null,
+        nextServiceDate: form.nextServiceDate || null,
+        nextServiceKm:   form.nextServiceKm ? Number(form.nextServiceKm) : null,
+        notes:           form.notes || null,
+        status:          form.status,
+      };
+      if (editId) {
+        await maintenanceApi.update(editId, payload);
+        toast.success('Record updated');
+      } else {
+        await maintenanceApi.create(payload);
+        toast.success('Record created');
+      }
+      closeForm();
+      load();
+    } catch (e: any) {
+      toast.error(e.message || 'Failed to save record');
+    } finally { setSaving(false); }
   };
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-96">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-      </div>
-    );
-  }
+  const confirmDelete = async () => {
+    if (!deleteId) return;
+    try {
+      await maintenanceApi.delete(deleteId);
+      toast.success('Record deleted');
+      setDeleteId(null);
+      load();
+    } catch { toast.error('Failed to delete record'); }
+  };
+
+  const f = (k: keyof typeof EMPTY_FORM) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
+    setForm(p => ({ ...p, [k]: e.target.value }));
+
+  const totalCost     = records.reduce((s, r) => s + Number(r.cost || 0), 0);
+  const activeCount   = records.filter(r => r.status === 'in_progress').length;
+  const scheduledCount= records.filter(r => r.status === 'scheduled').length;
+  const upcomingCount = (upcoming?.byDate?.length || 0) + (upcoming?.byKm?.length || 0);
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+    <div className="space-y-5">
+      <style>{`input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(1) opacity(0.5); cursor: pointer; }`}</style>
+      <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Maintenance</h1>
-          <p className="text-slate-500">Track vehicle maintenance and service records</p>
+          <h1 className="text-xl font-bold text-white">Maintenance</h1>
+          <p className="text-xs text-slate-500 mt-0.5">{loading ? '…' : `${records.length} record${records.length !== 1 ? 's' : ''}`}</p>
         </div>
+        {canEdit && (
+          <button onClick={openCreate}
+            className="flex items-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium rounded-lg transition-colors">
+            <Icon name="plus" className="w-3.5 h-3.5" /> Log Maintenance
+          </button>
+        )}
       </div>
 
-      <div className="space-y-4">
-        {records.map((record) => (
-          <Card key={record.id}>
-            <CardContent className="p-6">
-              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-                <div className="flex items-start gap-4">
-                  <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                    <WrenchIcon className="w-6 h-6 text-orange-600" />
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-3">
-                      <h3 className="font-semibold text-lg text-slate-900">{record.vehicle_plate}</h3>
-                      <Badge className={getTypeColor(record.maintenance_type)}>
-                        {record.maintenance_type.replace('_', ' ')}
-                      </Badge>
-                      <Badge className={getStatusColor(record.status)}>
-                        {record.status.replace('_', ' ')}
-                      </Badge>
-                    </div>
-                    <p className="text-sm text-slate-500">{record.description}</p>
-                    <p className="text-sm text-slate-400">{record.vehicle_type}</p>
-                  </div>
-                </div>
-                <div className="flex flex-wrap items-center gap-4 lg:gap-8">
-                  <div className="text-center">
-                    <p className="text-xs text-slate-500">Service Date</p>
-                    <p className="font-medium">{new Date(record.service_date).toLocaleDateString()}</p>
-                  </div>
-                  <div className="text-center">
-                    <p className="text-xs text-slate-500">Cost</p>
-                    <p className="font-medium">{formatCurrency(record.cost)}</p>
-                  </div>
-                  {record.service_provider && (
-                    <div className="text-center">
-                      <p className="text-xs text-slate-500">Provider</p>
-                      <p className="font-medium">{record.service_provider}</p>
-                    </div>
-                  )}
-                  {record.next_service_date && (
-                    <div className="text-center">
-                      <p className="text-xs text-slate-500">Next Service</p>
-                      <p className="font-medium">{new Date(record.next_service_date).toLocaleDateString()}</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+      {/* KPIs */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {[
+          { label:'Total Records',  value: records.length,  color:'text-white' },
+          { label:'In Progress',    value: activeCount,     color:'text-amber-400' },
+          { label:'Scheduled',      value: scheduledCount,  color:'text-blue-400' },
+          { label:'Total Cost',     value: fmtSAR(totalCost), color:'text-emerald-400' },
+        ].map(k => (
+          <div key={k.label} className="bg-[#1a1d27] rounded-xl border border-white/5 p-4">
+            <p className="text-[11px] text-slate-500">{k.label}</p>
+            <p className={`text-xl font-bold tabular-nums mt-1 ${k.color}`}>{k.value}</p>
+          </div>
         ))}
       </div>
 
-      {records.length === 0 && (
-        <div className="text-center py-12">
-          <WrenchIcon className="w-16 h-16 mx-auto text-slate-300 mb-4" />
-          <h3 className="text-lg font-medium text-slate-900">No maintenance records found</h3>
-          <p className="text-slate-500">Add maintenance records to track vehicle service history</p>
+      {/* Upcoming alert */}
+      {upcomingCount > 0 && (
+        <div className="flex items-start gap-3 bg-amber-500/10 border border-amber-500/20 rounded-xl p-4">
+          <Icon name="alert" className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
+          <div>
+            <p className="text-xs font-semibold text-amber-400">{upcomingCount} vehicle{upcomingCount !== 1 ? 's' : ''} due for maintenance</p>
+            <p className="text-[11px] text-slate-500 mt-0.5">
+              {upcoming?.byDate?.length > 0 && `${upcoming.byDate.length} due by date`}
+              {upcoming?.byDate?.length > 0 && upcoming?.byKm?.length > 0 && ' · '}
+              {upcoming?.byKm?.length > 0 && `${upcoming.byKm.length} due by mileage`}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Filters */}
+      <div className="flex flex-wrap gap-2">
+        <select value={statusFilt} onChange={e => setStatusFilt(e.target.value)}
+          className="bg-[#1a1d27] border border-white/5 rounded-lg px-3 py-2 text-xs text-slate-300 focus:outline-none focus:border-blue-500/40">
+          <option value="">All Statuses</option>
+          {STATUSES.map(s => <option key={s} value={s}>{s.replace('_', ' ')}</option>)}
+        </select>
+        <select value={typeFilt} onChange={e => setTypeFilt(e.target.value)}
+          className="bg-[#1a1d27] border border-white/5 rounded-lg px-3 py-2 text-xs text-slate-300 focus:outline-none focus:border-blue-500/40">
+          <option value="">All Types</option>
+          {TYPES.map(t => <option key={t} value={t}>{t.replace('_', ' ')}</option>)}
+        </select>
+      </div>
+
+      {/* Table */}
+      <div className="bg-[#1a1d27] rounded-xl border border-white/5 overflow-hidden">
+        {loading ? (
+          <div className="p-8 text-center text-slate-600 text-xs">Loading maintenance records…</div>
+        ) : records.length === 0 ? (
+          <div className="p-12 text-center">
+            <Icon name="wrench" className="w-10 h-10 text-slate-700 mx-auto mb-3" />
+            <p className="text-sm text-slate-500">No maintenance records found</p>
+            {canEdit && <button onClick={openCreate} className="mt-3 text-xs text-blue-400 hover:text-blue-300">Log first record</button>}
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="border-b border-white/5">
+                  {['Vehicle','Type','Service Date','Description','Provider','Cost','Status',''].map(h => (
+                    <th key={h} className="py-3 px-4 text-left text-[11px] font-medium text-slate-500 whitespace-nowrap">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {records.map((r: any) => (
+                  <tr key={r.id} className="border-b border-white/5 hover:bg-white/[0.02] transition-colors group">
+                    <td className="py-3 px-4">
+                      <div className="flex items-center gap-2">
+                        <div className="w-7 h-7 rounded-lg bg-blue-500/10 flex items-center justify-center flex-shrink-0">
+                          <Icon name="truck" className="w-3.5 h-3.5 text-blue-400" />
+                        </div>
+                        <div>
+                          <p className="font-semibold text-white font-mono text-[11px]">{r.vehicle_plate}</p>
+                          <p className="text-[10px] text-slate-500 capitalize">{r.vehicle_type}</p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="py-3 px-4">
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium capitalize ${TYPE_STYLE[r.maintenance_type] || 'bg-slate-500/15 text-slate-400'}`}>
+                        {(r.maintenance_type || '').replace('_', ' ')}
+                      </span>
+                    </td>
+                    <td className="py-3 px-4 text-slate-400 whitespace-nowrap">{fmtDate(r.service_date)}</td>
+                    <td className="py-3 px-4 text-slate-300 max-w-[200px] truncate">{r.description}</td>
+                    <td className="py-3 px-4 text-slate-400">{r.service_provider || '—'}</td>
+                    <td className="py-3 px-4 text-slate-300 tabular-nums">{r.cost ? fmtSAR(r.cost) : '—'}</td>
+                    <td className="py-3 px-4">
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium capitalize ${STATUS_STYLE[r.status] || 'bg-slate-500/15 text-slate-400'}`}>
+                        {(r.status || '').replace('_', ' ')}
+                      </span>
+                    </td>
+                    <td className="py-3 px-4">
+                      {canEdit && (
+                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button onClick={() => openEdit(r)}
+                            className="p-1.5 rounded-md hover:bg-blue-500/15 text-slate-500 hover:text-blue-400 transition-colors">
+                            <Icon name="edit" className="w-3.5 h-3.5" />
+                          </button>
+                          <button onClick={() => setDeleteId(r.id)}
+                            className="p-1.5 rounded-md hover:bg-red-500/15 text-slate-500 hover:text-red-400 transition-colors">
+                            <Icon name="trash" className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Form Drawer */}
+      {showForm && (
+        <div className="fixed inset-0 z-50 flex">
+          <div className="flex-1 bg-black/50 backdrop-blur-sm" onClick={closeForm} />
+          <div className="w-full max-w-lg bg-[#0d0f14] border-l border-white/5 flex flex-col h-full overflow-hidden">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-white/5">
+              <h2 className="text-sm font-semibold text-white">{editId ? 'Edit Record' : 'Log Maintenance'}</h2>
+              <button onClick={closeForm} className="p-1.5 rounded-md hover:bg-white/5 text-slate-400 hover:text-white transition-colors">
+                <Icon name="x" className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-6 space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Vehicle" required>
+                  <select value={form.vehicleId} onChange={f('vehicleId')} className={sel}>
+                    <option value="">Select vehicle…</option>
+                    {vehicles.map((v: any) => (
+                      <option key={v.id} value={v.id}>{v.plate_number} — {v.vehicle_type}</option>
+                    ))}
+                  </select>
+                </Field>
+                <Field label="Type" required>
+                  <select value={form.maintenanceType} onChange={f('maintenanceType')} className={sel}>
+                    {TYPES.map(t => <option key={t} value={t}>{t.replace('_', ' ')}</option>)}
+                  </select>
+                </Field>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Service Date" required><input type="date" value={form.serviceDate} onChange={f('serviceDate')} className={inp} style={{ colorScheme: 'dark' }} /></Field>
+                <Field label="Completion Date"><input type="date" value={form.completionDate} onChange={f('completionDate')} className={inp} style={{ colorScheme: 'dark' }} /></Field>
+              </div>
+              <Field label="Description" required>
+                <textarea value={form.description} onChange={f('description')} rows={3}
+                  className={inp + ' resize-none'} placeholder="Describe the work performed…" />
+              </Field>
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Service Provider"><input value={form.serviceProvider} onChange={f('serviceProvider')} className={inp} placeholder="Garage / workshop name" /></Field>
+                <Field label="Cost (SAR)"><input type="number" value={form.cost} onChange={f('cost')} className={inp} placeholder="0.00" /></Field>
+              </div>
+              <Field label="Parts Replaced">
+                <textarea value={form.partsReplaced} onChange={f('partsReplaced')} rows={2}
+                  className={inp + ' resize-none'} placeholder="List parts replaced (optional)…" />
+              </Field>
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Next Service Date"><input type="date" value={form.nextServiceDate} onChange={f('nextServiceDate')} className={inp} style={{ colorScheme: 'dark' }} /></Field>
+                <Field label="Next Service KM"><input type="number" value={form.nextServiceKm} onChange={f('nextServiceKm')} className={inp} placeholder="e.g. 150000" /></Field>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Status">
+                  <select value={form.status} onChange={f('status')} className={sel}>
+                    {STATUSES.map(s => <option key={s} value={s}>{s.replace('_', ' ')}</option>)}
+                  </select>
+                </Field>
+              </div>
+              <Field label="Notes">
+                <textarea value={form.notes} onChange={f('notes')} rows={2}
+                  className={inp + ' resize-none'} placeholder="Additional notes…" />
+              </Field>
+            </div>
+            <div className="px-6 py-4 border-t border-white/5 flex gap-3">
+              <button onClick={closeForm} className="flex-1 py-2 text-xs font-medium text-slate-400 hover:text-white border border-white/10 hover:border-white/20 rounded-lg transition-colors">Cancel</button>
+              <button onClick={save} disabled={saving}
+                className="flex-1 py-2 text-xs font-medium bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white rounded-lg transition-colors">
+                {saving ? 'Saving…' : editId ? 'Save Changes' : 'Create Record'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirm */}
+      {deleteId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="bg-[#1a1d27] rounded-xl border border-white/10 p-6 w-full max-w-sm shadow-2xl">
+            <h3 className="text-sm font-semibold text-white mb-2">Delete Record</h3>
+            <p className="text-xs text-slate-400 mb-5">This maintenance record will be permanently deleted.</p>
+            <div className="flex gap-3">
+              <button onClick={() => setDeleteId(null)} className="flex-1 py-2 text-xs border border-white/10 rounded-lg text-slate-400 hover:text-white transition-colors">Cancel</button>
+              <button onClick={confirmDelete} className="flex-1 py-2 text-xs bg-red-600 hover:bg-red-500 text-white rounded-lg transition-colors">Delete</button>
+            </div>
+          </div>
         </div>
       )}
     </div>

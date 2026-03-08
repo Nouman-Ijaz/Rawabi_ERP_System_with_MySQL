@@ -1,204 +1,451 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { usersApi } from '@/lib/api';
-import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 
-interface User {
-  id: number;
-  email: string;
-  first_name: string;
-  last_name: string;
-  role: string;
-  department?: string;
-  phone?: string;
-  is_active: boolean;
-  last_login?: string;
-}
+const fmtDate  = (d: string) => d ? new Date(d).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}) : 'Never';
+const fmtDT    = (d: string) => d ? new Date(d).toLocaleString('en-GB',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}) : 'Never';
+const initials = (f: string, l: string) => `${f?.[0]||''}${l?.[0]||''}`.toUpperCase();
 
-const emptyForm = {
-  email: '',
-  password: '',
-  firstName: '',
-  lastName: '',
-  role: 'viewer',
-  department: '',
-  phone: '',
+const ROLES = ['super_admin','admin','office_admin','dispatcher','accountant','driver'];
+const ROLE_STYLE: Record<string,string> = {
+  super_admin:  'bg-red-500/20 text-red-300 border-red-500/30',
+  admin:        'bg-blue-500/20 text-blue-300 border-blue-500/30',
+  accountant:   'bg-emerald-500/20 text-emerald-300 border-emerald-500/30',
+  office_admin: 'bg-purple-500/20 text-purple-300 border-purple-500/30',
+  dispatcher:   'bg-amber-500/20 text-amber-300 border-amber-500/30',
+  driver:       'bg-cyan-500/20 text-cyan-300 border-cyan-500/30',
+};
+const AVC = ['from-blue-500 to-blue-700','from-emerald-500 to-emerald-700','from-purple-500 to-purple-700',
+             'from-amber-500 to-amber-700','from-cyan-500 to-cyan-700','from-rose-500 to-rose-700'];
+const av = (id: number) => AVC[id % AVC.length];
+
+const EMPTY_FORM = {
+  email:'',firstName:'',lastName:'',role:'dispatcher',department:'',phone:'',password:'',isActive:'1',
 };
 
-function getRoleColor(role: string) {
-  const colors: Record<string, string> = {
-    admin: 'bg-red-100 text-red-800',
-    manager: 'bg-purple-100 text-purple-800',
-    accountant: 'bg-blue-100 text-blue-800',
-    dispatcher: 'bg-green-100 text-green-800',
-    viewer: 'bg-gray-100 text-gray-800',
+function Icon({name,className}:{name:string;className?:string}){
+  const c=className||'w-4 h-4';
+  const M:Record<string,any>={
+    search:<svg className={c} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>,
+    plus:<svg className={c} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4v16m8-8H4"/></svg>,
+    edit:<svg className={c} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>,
+    trash:<svg className={c} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>,
+    x:<svg className={c} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M6 18L18 6M6 6l12 12"/></svg>,
+    key:<svg className={c} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/></svg>,
+    users:<svg className={c} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>,
+    eye:<svg className={c} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>,
+    eyeoff:<svg className={c} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"/></svg>,
+    info:<svg className={c} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>,
   };
-  return colors[role] || 'bg-gray-100 text-gray-800';
+  return M[name]||<span/>;
 }
 
-const UserIcon = (p: React.SVGProps<SVGSVGElement>) => (
-  <svg {...p} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-  </svg>
-);
+const inp = "w-full bg-[#0c0e13] border border-white/10 rounded-lg px-3 py-2 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/20 transition-colors";
+const sel = inp+" appearance-none cursor-pointer [color-scheme:dark]";
+function Fld({label,req,children}:{label:string;req?:boolean;children:React.ReactNode}){
+  return(
+    <div>
+      <label className="block text-[11px] font-medium text-slate-400 mb-1">{label}{req&&<span className="text-red-400 ml-0.5">*</span>}</label>
+      {children}
+    </div>
+  );
+}
 
-const PlusIcon = (p: React.SVGProps<SVGSVGElement>) => (
-  <svg {...p} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-  </svg>
-);
+export default function Users(){
+  const {user:me,hasPermission}=useAuth();
+  const isSuperAdmin=hasPermission(['super_admin']);
+  const canEdit=hasPermission(['super_admin','admin']);
 
-export default function Users() {
-  const [users, setUsers] = useState<User[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [roleFilter, setRoleFilter] = useState('all');
-  const [isAddOpen, setIsAddOpen] = useState(false);
-  const [form, setForm] = useState({ ...emptyForm });
+  const [users,       setUsers]       = useState<any[]>([]);
+  // allRoleCounts fetched once from /users/stats — never filtered
+  const [allRoleCounts, setAllRoleCounts] = useState<Record<string,number>>({});
+  const [loading,     setLoading]     = useState(true);
+  const [search,      setSearch]      = useState('');
+  const [roleFilter,  setRoleFilter]  = useState('');
+  const [showForm,    setShowForm]    = useState(false);
+  const [editId,      setEditId]      = useState<number|null>(null);
+  const [saving,      setSaving]      = useState(false);
+  const [deleteId,    setDeleteId]    = useState<number|null>(null);
+  const [form,        setForm]        = useState({...EMPTY_FORM});
+  const [showPassInp, setShowPassInp] = useState(false);
+  const [resetTarget, setResetTarget] = useState<any|null>(null);
+  const [newPassword, setNewPassword] = useState('');
+  const [showResetPw, setShowResetPw] = useState(false);
+  const [resetting,   setResetting]   = useState(false);
+  const [toggleTarget,setToggleTarget]= useState<any|null>(null);
+  const [statsTotal,  setStatsTotal]  = useState(0);
+  const [statsActive, setStatsActive] = useState(0);
 
-  useEffect(() => {
-    loadUsers();
-  }, [searchQuery, roleFilter]);
-
-  const loadUsers = async () => {
+  // Load stats once (for role pills — never affected by search/filter)
+  const loadStats = useCallback(async () => {
     try {
-      setIsLoading(true);
-      const params: any = {};
-      if (searchQuery) params.search = searchQuery;
-      if (roleFilter !== 'all') params.role = roleFilter;
-      
+      const s = await usersApi.getStats();
+      const counts: Record<string,number> = {};
+      (s.roleCounts||[]).forEach((r:any)=>{ counts[r.role]=r.total; });
+      setAllRoleCounts(counts);
+      setStatsTotal(s.total||0);
+      setStatsActive(s.active_count||0);
+    } catch {}
+  },[]);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const params: Record<string,string> = {};
+      if (search)     params.search = search;
+      if (roleFilter) params.role   = roleFilter;
       const res = await usersApi.getAll(params);
-      const data = (res as any)?.data || res;
-      setUsers(Array.isArray(data) ? data : []);
-    } catch {
-      toast.error('Failed to load users');
-      setUsers([]);
-    } finally {
-      setIsLoading(false);
+      setUsers(res.data||res||[]);
+    } catch { toast.error('Failed to load users'); }
+    finally { setLoading(false); }
+  },[search, roleFilter]);
+
+  useEffect(()=>{ loadStats(); },[loadStats]);
+  useEffect(()=>{ load(); },[load]);
+
+  const openCreate=()=>{ setEditId(null); setForm({...EMPTY_FORM}); setShowPassInp(false); setShowForm(true); };
+  const openEdit=(u:any)=>{
+    setEditId(u.id);
+    setForm({
+      email:u.email||'', firstName:u.first_name||'', lastName:u.last_name||'',
+      role:u.role||'dispatcher', department:u.department||'', phone:u.phone||'',
+      password:'', isActive:u.is_active?'1':'0',
+    });
+    setShowPassInp(false);
+    setShowForm(true);
+  };
+  const closeForm=()=>{ setShowForm(false); setEditId(null); };
+
+  const save=async()=>{
+    if(!form.email||!form.firstName||!form.lastName||!form.role){
+      toast.error('Email, name and role are required'); return;
     }
+    if(!editId&&form.password.length<6){
+      toast.error('Password must be at least 6 characters'); return;
+    }
+    setSaving(true);
+    try{
+      if(editId){
+        await usersApi.update(editId,{
+          firstName:form.firstName, lastName:form.lastName,
+          role:form.role, department:form.department||null, phone:form.phone||null,
+          isActive:form.isActive==='1',
+        });
+        toast.success('User updated');
+      } else {
+        await usersApi.create({
+          email:form.email, password:form.password,
+          firstName:form.firstName, lastName:form.lastName,
+          role:form.role, department:form.department||null, phone:form.phone||null,
+        });
+        toast.success('User created');
+      }
+      closeForm(); load(); loadStats();
+    }catch(e:any){ toast.error(e.message||'Failed to save user'); }
+    finally{ setSaving(false); }
   };
 
-  const handleCreate = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      await usersApi.create(form);
-      toast.success('User created successfully');
-      setIsAddOpen(false);
-      setForm({ ...emptyForm });
-      loadUsers();
-    } catch (err: any) {
-      toast.error(err.message || 'Failed to create user');
-    }
+  const confirmDelete=async()=>{
+    if(!deleteId)return;
+    try{
+      await usersApi.delete(deleteId);
+      toast.success('User deleted');
+      setDeleteId(null); load(); loadStats();
+    }catch{ toast.error('Failed to delete user'); }
   };
 
-  const updateField = (k: keyof typeof emptyForm) => (e: React.ChangeEvent<HTMLInputElement>) => 
-    setForm(prev => ({ ...prev, [k]: e.target.value }));
+  const doReset=async()=>{
+    if(!resetTarget)return;
+    if(newPassword.length<6){ toast.error('Password must be at least 6 characters'); return; }
+    setResetting(true);
+    try{
+      await usersApi.resetPassword(resetTarget.id, newPassword);
+      toast.success(`Password reset for ${resetTarget.first_name}`);
+      setResetTarget(null); setNewPassword(''); setShowResetPw(false);
+    }catch(e:any){ toast.error(e.message||'Failed to reset password'); }
+    finally{ setResetting(false); }
+  };
 
-  const updateSelect = (k: keyof typeof emptyForm) => (v: string) => 
-    setForm(prev => ({ ...prev, [k]: v }));
+  const openReset=(u:any)=>{ setResetTarget(u); setNewPassword(''); setShowResetPw(false); };
 
-  if (isLoading) return <div className="flex items-center justify-center h-96"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div></div>;
+  const toggleActive=async(u:any)=>{
+    try{
+      await usersApi.update(u.id,{isActive:!u.is_active});
+      toast.success(`${u.first_name} ${u.is_active?'deactivated':'activated'}`);
+      setToggleTarget(null); load(); loadStats();
+    }catch{ toast.error('Failed to update user status'); }
+  };
 
-  return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+  const f=(k:keyof typeof EMPTY_FORM)=>(e:React.ChangeEvent<HTMLInputElement|HTMLSelectElement>)=>
+    setForm(p=>({...p,[k]:e.target.value}));
+
+  return(
+    <div className="space-y-5">
+      {/* Header */}
+      <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">User Management</h1>
-          <p className="text-slate-500">Manage system users and their roles</p>
+          <h1 className="text-xl font-bold text-white">Users</h1>
+          <p className="text-xs text-slate-500 mt-0.5">{statsTotal} total · {statsActive} active</p>
         </div>
-        <Button className="gap-2" onClick={() => { setForm({ ...emptyForm }); setIsAddOpen(true); }}>
-          <PlusIcon className="w-4 h-4" /> Add User
-        </Button>
+        {isSuperAdmin&&(
+          <button onClick={openCreate} className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium rounded-lg transition-colors">
+            <Icon name="plus" className="w-3.5 h-3.5"/>Add User
+          </button>
+        )}
       </div>
 
-      <div className="flex flex-col sm:flex-row gap-4">
-        <Input 
-          placeholder="Search users..." 
-          value={searchQuery} 
-          onChange={(e) => setSearchQuery(e.target.value)} 
-          className="flex-1" 
-        />
-        <Select value={roleFilter} onValueChange={setRoleFilter}>
-          <SelectTrigger className="w-full sm:w-48"><SelectValue placeholder="All Roles" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Roles</SelectItem>
-            <SelectItem value="admin">Admin</SelectItem>
-            <SelectItem value="manager">Manager</SelectItem>
-            <SelectItem value="accountant">Accountant</SelectItem>
-            <SelectItem value="dispatcher">Dispatcher</SelectItem>
-            <SelectItem value="viewer">Viewer</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {users.map((user) => (
-          <Card key={user.id}>
-            <CardContent className="pt-6">
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-500"><UserIcon className="w-6 h-6" /></div>
-                  <div><h3 className="font-semibold text-slate-900">{user.first_name} {user.last_name}</h3><p className="text-sm text-slate-500">{user.email}</p></div>
-                </div>
-                <Badge className={getRoleColor(user.role)}>{user.role}</Badge>
-              </div>
-              <div className="space-y-2 pt-4 border-t text-sm">
-                <div className="flex justify-between"><span className="text-slate-500">Department</span><span className="font-medium">{user.department || '—'}</span></div>
-                <div className="flex justify-between"><span className="text-slate-500">Phone</span><span className="font-medium">{user.phone || '—'}</span></div>
-                <div className="flex justify-between"><span className="text-slate-500">Status</span><Badge variant={user.is_active ? 'default' : 'secondary'}>{user.is_active ? 'Active' : 'Inactive'}</Badge></div>
-              </div>
-            </CardContent>
-          </Card>
+      {/* Role filter pills — sourced from allRoleCounts, never disappear */}
+      <div className="flex flex-wrap gap-2">
+        <button onClick={()=>setRoleFilter('')}
+          className={`px-3 py-1 rounded-full text-[11px] font-medium border transition-colors ${
+            roleFilter===''?'bg-white/10 text-white border-white/20':'bg-transparent text-slate-500 border-white/10 hover:bg-white/5'
+          }`}>
+          All ({statsTotal})
+        </button>
+        {ROLES.filter(r=>allRoleCounts[r]>0).map(r=>(
+          <button key={r} onClick={()=>setRoleFilter(roleFilter===r?'':r)}
+            className={`px-3 py-1 rounded-full text-[11px] font-medium border transition-colors ${
+              roleFilter===r ? ROLE_STYLE[r]+' border-current' : 'bg-transparent text-slate-400 border-white/10 hover:bg-white/5'
+            }`}>
+            {r.replace('_',' ')} ({allRoleCounts[r]||0})
+          </button>
         ))}
       </div>
 
-      <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader><DialogTitle>Add New User</DialogTitle><DialogDescription>Enter account details for the new user.</DialogDescription></DialogHeader>
-          <form onSubmit={handleCreate} className="space-y-4 pt-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2"><Label>First Name *</Label><Input value={form.firstName} onChange={updateField('firstName')} required /></div>
-              <div className="space-y-2"><Label>Last Name *</Label><Input value={form.lastName} onChange={updateField('lastName')} required /></div>
+      {/* Search — autocomplete=off prevents browser autofill pollution */}
+      <div className="relative max-w-xs">
+        <Icon name="search" className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500"/>
+        <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search name or email…"
+          autoComplete="off"
+          name="users-search"
+          className="w-full bg-[#1a1d27] border border-white/5 rounded-lg pl-9 pr-3 py-2 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-blue-500/40"/>
+      </div>
+
+      {/* Table */}
+      <div className="bg-[#1a1d27] rounded-xl border border-white/5 overflow-hidden">
+        {loading?(
+          <div className="p-8 text-center text-slate-600 text-xs">Loading users…</div>
+        ):users.length===0?(
+          <div className="p-12 text-center">
+            <Icon name="users" className="w-10 h-10 text-slate-700 mx-auto mb-3"/>
+            <p className="text-sm text-slate-500">No users found</p>
+          </div>
+        ):(
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="border-b border-white/5">
+                  {['User','Role','Department','Phone','Last Login','Status',''].map(h=>(
+                    <th key={h} className="py-3 px-4 text-left text-[10px] font-semibold text-slate-500 uppercase tracking-wide whitespace-nowrap">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {users.map((u:any)=>{
+                  const isMe=u.id===me?.id;
+                  return(
+                    <tr key={u.id} className={`border-b border-white/5 hover:bg-white/[0.02] transition-colors group ${isMe?'bg-blue-500/[0.04]':''}`}>
+                      <td className="py-3 px-4">
+                        <div className="flex items-center gap-3">
+                          <div className={`w-8 h-8 rounded-full bg-gradient-to-br ${av(u.id)} flex items-center justify-center text-[11px] font-bold text-white flex-shrink-0`}>
+                            {initials(u.first_name,u.last_name)}
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-1.5">
+                              <p className="font-semibold text-white">{u.first_name} {u.last_name}</p>
+                              {isMe&&<span className="text-[9px] px-1 py-0.5 rounded bg-blue-500/20 text-blue-400 font-medium">you</span>}
+                            </div>
+                            <p className="text-[10px] text-slate-500">{u.email}</p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="py-3 px-4">
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium border ${ROLE_STYLE[u.role]||'bg-slate-500/15 text-slate-400 border-transparent'}`}>
+                          {(u.role||'').replace('_',' ')}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4 text-slate-400">{u.department||'—'}</td>
+                      <td className="py-3 px-4 text-slate-400">{u.phone||'—'}</td>
+                      <td className="py-3 px-4 text-slate-500 whitespace-nowrap text-[11px]">{fmtDT(u.last_login)}</td>
+                      <td className="py-3 px-4">
+                        <button onClick={()=>!isMe&&setToggleTarget(u)} disabled={isMe}
+                          className={`px-2 py-0.5 rounded-full text-[10px] font-medium transition-colors ${
+                            u.is_active?'bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/25':'bg-slate-500/15 text-slate-400 hover:bg-slate-500/25'
+                          } ${isMe?'cursor-default opacity-60':'cursor-pointer'}`}>
+                          {u.is_active?'Active':'Inactive'}
+                        </button>
+                      </td>
+                      <td className="py-3 px-4">
+                        {canEdit&&!isMe&&(
+                          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button onClick={()=>openEdit(u)} className="p-1.5 rounded-md hover:bg-blue-500/15 text-slate-500 hover:text-blue-400 transition-colors" title="Edit user">
+                              <Icon name="edit" className="w-3.5 h-3.5"/>
+                            </button>
+                            {isSuperAdmin&&(
+                              <button onClick={()=>openReset(u)} className="p-1.5 rounded-md hover:bg-amber-500/15 text-slate-500 hover:text-amber-400 transition-colors" title="Reset password">
+                                <Icon name="key" className="w-3.5 h-3.5"/>
+                              </button>
+                            )}
+                            {isSuperAdmin&&(
+                              <button onClick={()=>setDeleteId(u.id)} className="p-1.5 rounded-md hover:bg-red-500/15 text-slate-500 hover:text-red-400 transition-colors" title="Delete">
+                                <Icon name="trash" className="w-3.5 h-3.5"/>
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* CREATE / EDIT MODAL */}
+      {showForm&&(
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={closeForm}/>
+          {/* Hidden dummy fields defeat browser autofill before real fields */}
+          <input type="text"     name="prevent_autofill" style={{display:'none'}} autoComplete="off"/>
+          <input type="password" name="prevent_autofill_pw" style={{display:'none'}} autoComplete="new-password"/>
+          <div className="relative w-full max-w-md bg-[#0d0f14] rounded-2xl border border-white/10 shadow-2xl flex flex-col max-h-[90vh] overflow-hidden">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-white/5 flex-shrink-0">
+              <h2 className="text-sm font-semibold text-white">{editId?'Edit User':'New User'}</h2>
+              <button onClick={closeForm} className="p-1.5 rounded-md hover:bg-white/5 text-slate-400 hover:text-white transition-colors"><Icon name="x" className="w-4 h-4"/></button>
             </div>
-            <div className="space-y-2"><Label>Email *</Label><Input type="email" value={form.email} onChange={updateField('email')} required /></div>
-            <div className="space-y-2"><Label>Password *</Label><Input type="password" value={form.password} onChange={updateField('password')} required /></div>
-            <div className="space-y-2">
-              <Label>Role *</Label>
-              <Select value={form.role} onValueChange={updateSelect('role')}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="admin">Admin</SelectItem>
-                  <SelectItem value="manager">Manager</SelectItem>
-                  <SelectItem value="accountant">Accountant</SelectItem>
-                  <SelectItem value="dispatcher">Dispatcher</SelectItem>
-                  <SelectItem value="viewer">Viewer</SelectItem>
-                </SelectContent>
-              </Select>
+            <div className="flex-1 overflow-y-auto p-6 space-y-4">
+              {!editId&&(
+                <Fld label="Email" req>
+                  <input type="email" value={form.email} onChange={f('email')} className={inp} placeholder="user@rawabi.com" autoComplete="off" name="new-user-email"/>
+                </Fld>
+              )}
+              {editId&&(
+                <div className="bg-[#0c0e13] rounded-lg px-4 py-2.5 border border-white/5">
+                  <p className="text-[10px] text-slate-500">Email</p>
+                  <p className="text-xs text-slate-300 mt-0.5">{form.email}</p>
+                </div>
+              )}
+              <div className="grid grid-cols-2 gap-3">
+                <Fld label="First Name" req><input value={form.firstName} onChange={f('firstName')} className={inp} placeholder="Ahmed" autoComplete="off"/></Fld>
+                <Fld label="Last Name" req><input value={form.lastName} onChange={f('lastName')} className={inp} placeholder="Al-Rashid" autoComplete="off"/></Fld>
+              </div>
+              <Fld label="Role" req>
+                <select value={form.role} onChange={f('role')} className={sel} disabled={!isSuperAdmin&&editId!==null}>
+                  {ROLES.map(r=><option key={r} value={r}>{r.replace('_',' ')}</option>)}
+                </select>
+              </Fld>
+              <div className="grid grid-cols-2 gap-3">
+                <Fld label="Department">
+                  <select value={form.department} onChange={f('department')} className={sel}>
+                    <option value="">Select department…</option>
+                    {['Operations','Logistics','Finance','HR','IT','Management','Maintenance','Dispatch','Admin','Sales'].map(d=>(
+                      <option key={d} value={d}>{d}</option>
+                    ))}
+                  </select>
+                </Fld>
+                <Fld label="Phone"><input value={form.phone} onChange={f('phone')} className={inp} placeholder="+966 5xx xxx xxxx" autoComplete="off"/></Fld>
+              </div>
+              {editId&&(
+                <Fld label="Account Status">
+                  <select value={form.isActive} onChange={f('isActive')} className={sel}>
+                    <option value="1">Active</option>
+                    <option value="0">Inactive</option>
+                  </select>
+                </Fld>
+              )}
+              {!editId&&(
+                <Fld label="Password" req>
+                  <div className="relative">
+                    <input type={showPassInp?'text':'password'} value={form.password} onChange={f('password')}
+                      className={inp+' pr-10'} placeholder="Min 6 characters"
+                      autoComplete="new-password" name="new-user-password"/>
+                    <button type="button" onClick={()=>setShowPassInp(p=>!p)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300">
+                      <Icon name={showPassInp?'eyeoff':'eye'} className="w-3.5 h-3.5"/>
+                    </button>
+                  </div>
+                </Fld>
+              )}
             </div>
-            <div className="space-y-2"><Label>Department</Label><Input value={form.department} onChange={updateField('department')} /></div>
-            <div className="space-y-2"><Label>Phone</Label><Input value={form.phone} onChange={updateField('phone')} /></div>
-            <Button type="submit" className="w-full">Create User</Button>
-          </form>
-        </DialogContent>
-      </Dialog>
+            <div className="px-6 py-4 border-t border-white/5 flex gap-3 flex-shrink-0">
+              <button onClick={closeForm} className="flex-1 py-2 text-xs font-medium text-slate-400 border border-white/10 rounded-lg hover:text-white transition-colors">Cancel</button>
+              <button onClick={save} disabled={saving} className="flex-1 py-2 text-xs font-medium bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white rounded-lg transition-colors">
+                {saving?'Saving…':editId?'Save Changes':'Create User'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* RESET PASSWORD MODAL */}
+      {resetTarget&&(
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={()=>setResetTarget(null)}/>
+          <div className="relative bg-[#1a1d27] rounded-xl border border-white/10 p-6 w-full max-w-sm shadow-2xl">
+            <h3 className="text-sm font-semibold text-white mb-1">Reset Password</h3>
+            <p className="text-xs text-slate-500 mb-4">Set a new password for <span className="text-white font-medium">{resetTarget.first_name} {resetTarget.last_name}</span></p>
+            <div className="relative mb-4">
+              <input type={showResetPw?'text':'password'} value={newPassword} onChange={e=>setNewPassword(e.target.value)}
+                className={inp+' pr-10'} placeholder="New password (min 6 chars)"
+                autoComplete="new-password" name="reset-password-field"/>
+              <button type="button" onClick={()=>setShowResetPw(p=>!p)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300">
+                <Icon name={showResetPw?'eyeoff':'eye'} className="w-3.5 h-3.5"/>
+              </button>
+            </div>
+            {newPassword.length>0&&newPassword.length<6&&(
+              <p className="text-[11px] text-red-400 mb-3">Password must be at least 6 characters</p>
+            )}
+            <div className="flex gap-3">
+              <button onClick={()=>setResetTarget(null)} className="flex-1 py-2 text-xs border border-white/10 rounded-lg text-slate-400 hover:text-white transition-colors">Cancel</button>
+              <button onClick={doReset} disabled={resetting||newPassword.length<6}
+                className="flex-1 py-2 text-xs bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-white rounded-lg transition-colors">
+                {resetting?'Resetting…':'Reset Password'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* TOGGLE ACTIVE MODAL */}
+      {toggleTarget&&(
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={()=>setToggleTarget(null)}/>
+          <div className="relative bg-[#1a1d27] rounded-xl border border-white/10 p-6 w-full max-w-sm shadow-2xl">
+            <h3 className="text-sm font-semibold text-white mb-2">{toggleTarget.is_active?'Deactivate User':'Activate User'}</h3>
+            <p className="text-xs text-slate-400 mb-5">
+              {toggleTarget.is_active
+                ?`${toggleTarget.first_name} will lose access immediately.`
+                :`${toggleTarget.first_name} will regain access to the system.`}
+            </p>
+            <div className="flex gap-3">
+              <button onClick={()=>setToggleTarget(null)} className="flex-1 py-2 text-xs border border-white/10 rounded-lg text-slate-400 hover:text-white transition-colors">Cancel</button>
+              <button onClick={()=>toggleActive(toggleTarget)}
+                className={`flex-1 py-2 text-xs text-white rounded-lg transition-colors ${toggleTarget.is_active?'bg-red-600 hover:bg-red-500':'bg-emerald-600 hover:bg-emerald-500'}`}>
+                {toggleTarget.is_active?'Deactivate':'Activate'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* DELETE CONFIRM */}
+      {deleteId&&(
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={()=>setDeleteId(null)}/>
+          <div className="relative bg-[#1a1d27] rounded-xl border border-white/10 p-6 w-full max-w-sm shadow-2xl">
+            <h3 className="text-sm font-semibold text-white mb-2">Delete User</h3>
+            <p className="text-xs text-slate-400 mb-5">This user account will be permanently deleted.</p>
+            <div className="flex gap-3">
+              <button onClick={()=>setDeleteId(null)} className="flex-1 py-2 text-xs border border-white/10 rounded-lg text-slate-400 hover:text-white transition-colors">Cancel</button>
+              <button onClick={confirmDelete} className="flex-1 py-2 text-xs bg-red-600 hover:bg-red-500 text-white rounded-lg transition-colors">Delete</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

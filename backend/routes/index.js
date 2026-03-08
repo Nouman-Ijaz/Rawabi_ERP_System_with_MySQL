@@ -43,11 +43,14 @@ router.put('/profile/change-password',  authController.changePassword);
 // USERS  (super_admin only for write, admin can read)
 // ============================================
 router.get('/users',                authorize(['super_admin', 'admin']),       userController.getAllUsers);
+router.get('/users/stats',          authorize(['super_admin', 'admin']),       userController.getUserStats);
 router.get('/users/:id',            authorize(['super_admin', 'admin']),       userController.getUserById);
 router.post('/users',               authorize(['super_admin']),                userController.createUser);
 router.put('/users/:id',            authorize(['super_admin']),                userController.updateUser);
 router.delete('/users/:id',         authorize(['super_admin']),                userController.deleteUser);
+// Super admin resets any user's password; any user changes their own via /me/change-password
 router.put('/users/:id/reset-password', authorize(['super_admin']),           userController.resetPassword);
+router.put('/me/change-password',   authorize([]),                            userController.changeOwnPassword);
 
 // ============================================
 // EMPLOYEES  (super_admin, admin, office_admin)
@@ -83,6 +86,7 @@ router.get('/drivers/:id',           authorize(['super_admin','admin','office_ad
 router.get('/drivers/:id/performance', authorize(['super_admin','admin','dispatcher','driver']),                 driverController.getDriverPerformance);
 router.post('/drivers',              authorize(['super_admin','admin']), uploadDriver.single('photo'),           driverController.createDriver);
 router.put('/drivers/:id',           authorize(['super_admin','admin']), uploadDriver.single('photo'),           driverController.updateDriver);
+router.put('/drivers/:id/rating',    authorize(['super_admin','admin']),                                         driverController.updateDriverRating);
 router.delete('/drivers/:id',        authorize(['super_admin','admin']),                                         driverController.deleteDriver);
 
 // ============================================
@@ -292,6 +296,8 @@ router.put('/expenses/:id/approve',  authorize(['super_admin','admin']),        
 router.get('/finance/summary',            authorize(['super_admin','admin','accountant']),   financeController.getFinancialSummary);
 router.get('/finance/deliverable-shipments', authorize(['super_admin','admin','accountant']),   financeController.getDeliverableShipments);
 router.get('/finance/company-settings',      authorize(['super_admin','admin','accountant']),   financeController.getCompanySettings);
+router.get('/settings',                      authorize(['super_admin','admin']),               financeController.getAllSettings);
+router.put('/settings',                      authorize(['super_admin']),                       financeController.updateSettings);
 
 // ============================================
 // MAINTENANCE  (drivers cannot access)

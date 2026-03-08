@@ -9,7 +9,7 @@ function generateVehicleCode() {
 // Get all vehicles with optional filters
 export async function getAllVehicles(req, res) {
     try {
-        const { status, type, search, page = 1, limit = 50 } = req.query;
+        const { status, type, search, fuelType, driverAssignment, expiryAlert, sort = 'created_at', page = 1, limit = 50 } = req.query;
         
         let sql = `
             SELECT 
@@ -46,7 +46,37 @@ export async function getAllVehicles(req, res) {
             params.push(searchTerm, searchTerm, searchTerm, searchTerm, searchTerm);
         }
 
-        sql += ' ORDER BY v.created_at DESC';
+        if (fuelType) {
+            sql += ' AND v.fuel_type = ?';
+            params.push(fuelType);
+        }
+
+        if (driverAssignment === 'assigned')   sql += ' AND e.id IS NOT NULL';
+        if (driverAssignment === 'unassigned') sql += ' AND e.id IS NULL';
+
+        if (expiryAlert === 'expiring') {
+            sql += ` AND (
+                (v.registration_expiry IS NOT NULL AND DATEDIFF(v.registration_expiry, CURDATE()) BETWEEN 0 AND 30)
+                OR (v.insurance_expiry IS NOT NULL AND DATEDIFF(v.insurance_expiry, CURDATE()) BETWEEN 0 AND 30)
+            )`;
+        } else if (expiryAlert === 'expired') {
+            sql += ` AND (
+                (v.registration_expiry IS NOT NULL AND v.registration_expiry < CURDATE())
+                OR (v.insurance_expiry IS NOT NULL AND v.insurance_expiry < CURDATE())
+            )`;
+        }
+
+        const sortMap = {
+            created_at:           'v.created_at DESC',
+            plate_asc:            'v.plate_number ASC',
+            year_desc:            'v.year DESC',
+            year_asc:             'v.year ASC',
+            capacity_desc:        'v.capacity_kg DESC',
+            registration_expiry:  'v.registration_expiry ASC',
+            insurance_expiry:     'v.insurance_expiry ASC',
+        };
+        sql += ` ORDER BY ${sortMap[sort] || 'v.created_at DESC'}`;
+
         
         // Add pagination
         const offset = (parseInt(page) - 1) * parseInt(limit);

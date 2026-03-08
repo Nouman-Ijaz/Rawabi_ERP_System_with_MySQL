@@ -206,7 +206,7 @@ async function getUpcomingMaintenance(req, res) {
              FROM maintenance_records m
              JOIN vehicles v ON v.id = m.vehicle_id
              WHERE m.next_service_date IS NOT NULL
-             AND m.next_service_date <= date('now', '+30 days')
+             AND m.next_service_date <= DATE_ADD(CURDATE(), INTERVAL 30 DAY)
              AND m.status = 'completed'
              ORDER BY m.next_service_date ASC`
         );

@@ -6,7 +6,7 @@ import {
   DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { toast } from 'sonner';
-import { notificationsApi } from '@/lib/api';
+import { notificationsApi, authApi } from '@/lib/api';
 
 const NAV = [
   { name: 'Dashboard',   href: '/dashboard',   icon: 'dashboard',   roles: [] },
@@ -21,7 +21,7 @@ const NAV = [
   { name: 'Maintenance', href: '/maintenance', icon: 'wrench',      roles: ['super_admin','admin','dispatcher'] },
   { name: 'Reports',     href: '/reports',     icon: 'barchart',    roles: ['super_admin','admin','accountant'] },
   { name: 'Users',       href: '/users',       icon: 'usercog',     roles: ['super_admin','admin'] },
-  { name: 'Settings',    href: '/settings',    icon: 'settings',    roles: [] },
+  { name: 'Settings',    href: '/settings',    icon: 'settings',    roles: ['super_admin','admin'] },
 ];
 
 const ROLE_COLORS: Record<string, string> = {
@@ -57,6 +57,7 @@ function Icon({ name, className }: { name: string; className?: string }) {
     settings:  <svg {...p}><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>,
     bell:      <svg {...p}><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>,
     logout:    <svg {...p}><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>,
+    key:       <svg {...p}><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/></svg>,
     user:      <svg {...p}><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>,
     menu:      <svg {...p}><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 6h16M4 12h16M4 18h16"/></svg>,
     x:         <svg {...p}><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M6 18L18 6M6 6l12 12"/></svg>,
@@ -74,6 +75,9 @@ export default function MainLayout() {
   const [sidebarOpen, setSidebarOpen]     = useState(false);
   const [notifOpen, setNotifOpen]         = useState(false);
   const [notifications, setNotifications] = useState<any[]>([]);
+  const [showChangePw, setShowChangePw]   = useState(false);
+  const [changePwForm, setChangePwForm]   = useState({ current: '', next: '', show: false });
+  const [changePwSaving, setChangePwSaving] = useState(false);
   const [notifLoading, setNotifLoading]   = useState(false);
 
   const loadNotifications = async () => {
@@ -105,8 +109,8 @@ export default function MainLayout() {
   const badgeColor  = urgentCount > 0 ? 'bg-red-500' : 'bg-blue-500';
 
   return (
+  <>
     <div className="min-h-screen bg-[#0f1117] text-white flex">
-
       {sidebarOpen && (
         <div className="fixed inset-0 bg-black/60 z-40 lg:hidden backdrop-blur-sm"
           onClick={() => setSidebarOpen(false)} />
@@ -283,6 +287,9 @@ export default function MainLayout() {
               <DropdownMenuContent align="end" className="w-52 bg-[#1a1d27] border-white/10 text-slate-200">
                 <DropdownMenuLabel className="text-xs text-slate-400">{user?.firstName} {user?.lastName}</DropdownMenuLabel>
                 <DropdownMenuSeparator className="bg-white/10" />
+                <DropdownMenuItem onClick={() => setShowChangePw(true)} className="hover:bg-white/5 cursor-pointer text-xs">
+                  <Icon name="key" className="w-3.5 h-3.5 mr-2" /> Change Password
+                </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => navigate('/settings')} className="hover:bg-white/5 cursor-pointer text-xs">
                   <Icon name="settings" className="w-3.5 h-3.5 mr-2" /> Settings
                 </DropdownMenuItem>
@@ -301,5 +308,66 @@ export default function MainLayout() {
         </main>
       </div>
     </div>
+
+    {/* ── CHANGE PASSWORD MODAL (all users) ──────────────── */}
+    {showChangePw && (
+      <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+        <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => { setShowChangePw(false); setChangePwForm({ current:'', next:'', show:false }); }}/>
+        <div className="relative w-full max-w-sm bg-[#0d0f14] rounded-2xl border border-white/10 shadow-2xl p-6">
+          <h2 className="text-sm font-semibold text-white mb-1">Change Password</h2>
+          <p className="text-[11px] text-slate-500 mb-5">Enter your current password to set a new one.</p>
+          <div className="space-y-3">
+            <div>
+              <label className="block text-[11px] font-medium text-slate-400 mb-1">Current Password</label>
+              <input type={changePwForm.show ? 'text' : 'password'}
+                value={changePwForm.current}
+                onChange={e => setChangePwForm(p => ({ ...p, current: e.target.value }))}
+                className="w-full bg-[#0c0e13] border border-white/10 rounded-lg px-3 py-2 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-blue-500/50 transition-colors"
+                placeholder="Your current password"
+                autoComplete="current-password"/>
+            </div>
+            <div>
+              <label className="block text-[11px] font-medium text-slate-400 mb-1">New Password</label>
+              <input type={changePwForm.show ? 'text' : 'password'}
+                value={changePwForm.next}
+                onChange={e => setChangePwForm(p => ({ ...p, next: e.target.value }))}
+                className="w-full bg-[#0c0e13] border border-white/10 rounded-lg px-3 py-2 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-blue-500/50 transition-colors"
+                placeholder="Min 6 characters"
+                autoComplete="new-password"/>
+            </div>
+            <button type="button" onClick={() => setChangePwForm(p => ({ ...p, show: !p.show }))}
+              className="text-[11px] text-slate-500 hover:text-slate-300 transition-colors">
+              {changePwForm.show ? 'Hide passwords' : 'Show passwords'}
+            </button>
+          </div>
+          {changePwForm.next.length > 0 && changePwForm.next.length < 6 && (
+            <p className="text-[11px] text-red-400 mt-2">New password must be at least 6 characters</p>
+          )}
+          <div className="flex gap-3 mt-5">
+            <button onClick={() => { setShowChangePw(false); setChangePwForm({ current:'', next:'', show:false }); }}
+              className="flex-1 py-2 text-xs border border-white/10 rounded-lg text-slate-400 hover:text-white transition-colors">
+              Cancel
+            </button>
+            <button
+              disabled={changePwSaving || !changePwForm.current || changePwForm.next.length < 6}
+              onClick={async () => {
+                setChangePwSaving(true);
+                try {
+                  await authApi.changePassword(changePwForm.current, changePwForm.next);
+                  toast.success('Password changed successfully');
+                  setShowChangePw(false);
+                  setChangePwForm({ current:'', next:'', show:false });
+                } catch (e: any) {
+                  toast.error(e.message || 'Failed to change password');
+                } finally { setChangePwSaving(false); }
+              }}
+              className="flex-1 py-2 text-xs font-medium bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white rounded-lg transition-colors">
+              {changePwSaving ? 'Saving…' : 'Change Password'}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+  </>
   );
 }

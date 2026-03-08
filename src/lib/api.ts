@@ -57,7 +57,7 @@ export const authApi = {
     }),
   
   changePassword: (currentPassword: string, newPassword: string) =>
-    fetchApi<any>('/profile/change-password', {
+    fetchApi<any>('/me/change-password', {
       method: 'PUT',
       body: JSON.stringify({ currentPassword, newPassword }),
     }),
@@ -69,7 +69,9 @@ export const authApi = {
 export const usersApi = {
   getAll: (params?: Record<string, string>) =>
     fetchApi<any>(`/users?${new URLSearchParams(params || {}).toString()}`),
-  
+
+  getStats: () => fetchApi<any>('/users/stats'),
+
   getById: (id: number) => fetchApi<any>(`/users/${id}`),
   
   create: (data: any) =>
@@ -197,6 +199,12 @@ export const driversApi = {
   delete: (id: number) =>
     fetchApi<any>(`/drivers/${id}`, {
       method: 'DELETE',
+    }),
+
+  updateRating: (id: number, rating: number, notes?: string) =>
+    fetchApi<any>(`/drivers/${id}/rating`, {
+      method: 'PUT',
+      body: JSON.stringify({ rating, notes }),
     }),
 };
 
@@ -423,6 +431,12 @@ export const reportsApi = {
   getDriverPerformance:  (period?: string) => fetchApi<any>(`/reports/driver-performance?period=${period || 'month'}`),
 };
 
+export const settingsApi = {
+  getAll: () => fetchApi<any>('/settings'),
+  update: (data: Record<string, string>) =>
+    fetchApi<any>('/settings', { method: 'PUT', body: JSON.stringify(data) }),
+};
+
 // Export all APIs
 export const api = {
   auth: authApi,
@@ -435,6 +449,7 @@ export const api = {
   finance: financeApi,
   maintenance: maintenanceApi,
   reports: reportsApi,
+  settings: settingsApi,
 };
 
 export default api;

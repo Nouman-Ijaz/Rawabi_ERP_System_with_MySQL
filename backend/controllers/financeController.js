@@ -401,3 +401,41 @@ export async function getCompanySettings(req, res) {
         res.status(500).json({ error: 'Internal server error' });
     }
 }
+
+export async function getAllSettings(req, res) {
+    try {
+        const rows = await query(
+            "SELECT setting_key, setting_value, setting_group, description FROM settings ORDER BY setting_group, setting_key"
+        );
+        const settings = {};
+        rows.forEach(r => { settings[r.setting_key] = r.setting_value; });
+        res.json(settings);
+    } catch (error) {
+        console.error('Get all settings error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+}
+
+export async function updateSettings(req, res) {
+    try {
+        const updates = req.body; // { setting_key: value, ... }
+        if (!updates || typeof updates !== 'object') {
+            return res.status(400).json({ error: 'Invalid settings payload' });
+        }
+        for (const [key, value] of Object.entries(updates)) {
+            await run(
+                `UPDATE settings SET setting_value = ? WHERE setting_key = ?`,
+                [value, key]
+            );
+        }
+        // Log activity
+        await run(
+            'INSERT INTO activity_logs (user_id, action, entity_type, new_values) VALUES (?, ?, ?, ?)',
+            [req.user.id, 'UPDATE_SETTINGS', 'settings', JSON.stringify(updates)]
+        );
+        res.json({ message: 'Settings updated successfully' });
+    } catch (error) {
+        console.error('Update settings error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+}
