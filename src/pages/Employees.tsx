@@ -77,7 +77,7 @@ function Icon({name,className}:{name:string;className?:string}){
   return M[name]||<span/>;
 }
 
-const inp = "w-full bg-[#0c0e13] border border-white/10 rounded-lg px-3 py-2 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/20 transition-colors [color-scheme:dark]";
+const inp = "w-full bg-[#0c0e13] border border-white/10 rounded-lg px-3 py-2 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/20 transition-colors";
 const sel = inp+" appearance-none cursor-pointer";
 
 function Fld({label,req,span,children}:{label:string;req?:boolean;span?:string;children:React.ReactNode}){

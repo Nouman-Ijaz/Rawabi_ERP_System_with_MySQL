@@ -95,28 +95,135 @@ function AlertBadge({ days }: { days: number | null }) {
   return <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-amber-500/15 text-amber-400">{days}d left</span>;
 }
 
-function exportToPDF(period: string) {
-  const el = document.getElementById('reports-content');
-  if (!el) return;
+function exportToPDF(
+  period: string,
+  data: {
+    finData: any; shipKPIs: any; revByCustomer: any[];
+    routePerf: any[]; driverPerf: any[]; cashFlow: any; fleetAlerts: any;
+  }
+) {
+  const fS  = (n: any) => `SAR ${Number(n || 0).toLocaleString('en-SA', { minimumFractionDigits: 0 })}`;
+  const fD  = (d: string) => d ? new Date(d).toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' }) : '—';
+  const pct = (n: any) => n != null ? `${Number(n).toFixed(1)}%` : '—';
+  const now = new Date().toLocaleString('en-GB', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' });
+  const rev = data.finData?.revenue || {};
+  const monthly = (data.finData?.monthlyData || []).slice().reverse();
+
+  const kpiBlock = (label: string, value: string, sub?: string) =>
+    `<div style="border:1px solid #e2e8f0;border-radius:8px;padding:12px 16px;min-width:140px;flex:1">
+      <div style="font-size:10px;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">${label}</div>
+      <div style="font-size:16px;font-weight:700;color:#0f172a">${value}</div>
+      ${sub ? `<div style="font-size:10px;color:#64748b;margin-top:2px">${sub}</div>` : ''}
+    </div>`;
+
+  const tableRows = (rows: string[][]) =>
+    rows.map(cols => `<tr>${cols.map((c,i) => `<td style="padding:6px 10px;border-bottom:1px solid #f1f5f9;${i===0?'font-weight:500':'text-align:right;color:#475569'}">${c}</td>`).join('')}</tr>`).join('');
+
+  const section = (title: string, subtitle: string, content: string) =>
+    `<div style="margin-bottom:24px;page-break-inside:avoid">
+      <h2 style="font-size:13px;font-weight:700;color:#0f172a;margin:0 0 2px">${title}</h2>
+      <p style="font-size:10px;color:#94a3b8;margin:0 0 10px">${subtitle}</p>
+      ${content}
+    </div>`;
+
   const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
-    <title>Rawabi Logistics - Reports (${period})</title>
-    <style>
-      * { box-sizing: border-box; }
-      body { font-family: -apple-system, sans-serif; background:#0f1117; color:#e2e8f0; margin:0; padding:24px; font-size:12px; -webkit-print-color-adjust:exact; }
-      h1 { font-size:18px; margin-bottom:4px; color:#fff; }
-      table { width:100%; border-collapse:collapse; margin-top:8px; }
-      th { text-align:left; color:#64748b; font-size:11px; padding:6px 8px; border-bottom:1px solid rgba(255,255,255,0.1); }
-      td { padding:6px 8px; border-bottom:1px solid rgba(255,255,255,0.05); color:#cbd5e1; }
-      .section { background:#1a1d27; border-radius:10px; padding:16px; margin-bottom:16px; border:1px solid rgba(255,255,255,0.05); }
-    </style></head><body>
-    <h1>Rawabi Logistics — Reports & Analytics</h1>
-    <p style="color:#64748b;margin-bottom:20px">Period: ${period} · ${new Date().toLocaleString('en-GB')}</p>
-    ${el.innerHTML}
-  </body></html>`;
-  const blob = new Blob([html], { type: 'text/html' });
-  const url  = URL.createObjectURL(blob);
-  const win  = window.open(url, '_blank');
-  if (win) win.onload = () => setTimeout(() => { win.print(); URL.revokeObjectURL(url); }, 600);
+<title>Rawabi Logistics — Report ${period}</title>
+<style>
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { font-family:Arial,sans-serif; font-size:11px; color:#0f172a; background:white; padding:32px; }
+  h1  { font-size:20px; font-weight:800; color:#0f172a; }
+  table { width:100%; border-collapse:collapse; }
+  th  { text-align:left; font-size:10px; color:#94a3b8; text-transform:uppercase; letter-spacing:.06em; padding:6px 10px; border-bottom:2px solid #e2e8f0; }
+  td  { font-size:11px; }
+  @media print { body { padding:20px; } }
+</style></head><body>
+
+<div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #0f172a;padding-bottom:12px;margin-bottom:24px">
+  <div>
+    <h1>Rawabi Logistics</h1>
+    <div style="font-size:12px;color:#475569;margin-top:2px">Operations &amp; Financial Report</div>
+  </div>
+  <div style="text-align:right">
+    <div style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.05em">${period.toUpperCase()} PERIOD</div>
+    <div style="font-size:10px;color:#64748b;margin-top:2px">Generated: ${now}</div>
+  </div>
+</div>
+
+${section('Financial Overview', 'Revenue · Expenses · Profit',
+  `<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px">
+    ${kpiBlock('Revenue', fS(rev.total), `${rev.invoices||0} invoices`)}
+    ${kpiBlock('Expenses', fS(rev.expenses), '')}
+    ${kpiBlock('Gross Profit', fS((rev.total||0)-(rev.expenses||0)), pct(rev.total ? (((rev.total||0)-(rev.expenses||0))/(rev.total||1))*100 : null) + ' margin')}
+    ${kpiBlock('Collected', fS(rev.collected), `${pct(rev.total ? ((rev.collected||0)/(rev.total||1))*100 : null)} of invoiced`)}
+  </div>
+  ${monthly.length > 0 ? `<table>
+    <thead><tr><th>Month</th><th>Revenue</th><th>Expenses</th><th>Profit</th></tr></thead>
+    <tbody>${tableRows(monthly.map((m:any) => [m.month, fS(m.revenue), fS(m.expenses), fS((m.revenue||0)-(m.expenses||0))]))}</tbody>
+  </table>` : '<p style="color:#94a3b8;font-style:italic">No monthly data</p>'}
+`)}
+
+${section('Shipment KPIs', period,
+  data.shipKPIs ? `<div style="display:flex;gap:10px;flex-wrap:wrap">
+    ${kpiBlock('Total Shipments', String(data.shipKPIs.total||0), '')}
+    ${kpiBlock('Delivered', String(data.shipKPIs.delivered||0), pct(data.shipKPIs.total ? ((data.shipKPIs.delivered||0)/(data.shipKPIs.total||1))*100 : null))}
+    ${kpiBlock('In Transit', String(data.shipKPIs.in_transit||0), '')}
+    ${kpiBlock('On-Time Rate', pct(data.shipKPIs.on_time_rate), '')}
+  </div>` : '<p style="color:#94a3b8;font-style:italic">No shipment data</p>'
+)}
+
+${section('Revenue by Customer', `Top customers · ${period}`,
+  (data.revByCustomer||[]).length > 0 ? `<table>
+    <thead><tr><th>Customer</th><th>Shipments</th><th>Revenue</th><th>% of Total</th></tr></thead>
+    <tbody>${tableRows((data.revByCustomer||[]).map((c:any) => [
+      c.company_name||'—', String(c.shipment_count||0),
+      fS(c.total_revenue),
+      pct(rev.total ? ((c.total_revenue||0)/(rev.total||1))*100 : null)
+    ]))}</tbody>
+  </table>` : '<p style="color:#94a3b8;font-style:italic">No revenue data</p>'
+)}
+
+${section('Route Performance', `Top lanes · ${period}`,
+  (data.routePerf||[]).length > 0 ? `<table>
+    <thead><tr><th>Route</th><th>Shipments</th><th>Revenue</th><th>Avg/Shipment</th><th>On-Time</th></tr></thead>
+    <tbody>${tableRows((data.routePerf||[]).map((r:any) => [
+      `${r.origin_city} → ${r.destination_city}`,
+      String(r.shipment_count||0), fS(r.total_revenue),
+      fS(r.avg_revenue_per_shipment), pct(r.on_time_rate)
+    ]))}</tbody>
+  </table>` : '<p style="color:#94a3b8;font-style:italic">No route data</p>'
+)}
+
+${section('Driver Performance', `Ranked by trips · ${period}`,
+  (data.driverPerf||[]).length > 0 ? `<table>
+    <thead><tr><th>#</th><th>Driver</th><th>License</th><th>Trips</th><th>Revenue</th><th>On-Time</th><th>Rating</th><th>Status</th></tr></thead>
+    <tbody>${tableRows((data.driverPerf||[]).map((d:any, i:number) => [
+      String(i+1), d.driver_name||'—', d.license_type||'—',
+      String(d.trips||0), fS(d.revenue), pct(d.on_time_rate),
+      d.rating ? `${Number(d.rating).toFixed(1)}/5` : '—',
+      d.status||'—'
+    ]))}</tbody>
+  </table>` : '<p style="color:#94a3b8;font-style:italic">No driver data</p>'
+)}
+
+${data.cashFlow ? section('Cash Flow Summary', 'Forecast & collections',
+  `<div style="display:flex;gap:10px;flex-wrap:wrap">
+    ${kpiBlock('Overdue', fS(data.cashFlow.overdue?.amount), `${data.cashFlow.overdue?.count||0} invoices`)}
+    ${kpiBlock('Due This Week', fS(data.cashFlow.expected?.this_week_amount), '')}
+    ${kpiBlock('Due This Month', fS(data.cashFlow.expected?.this_month_amount), '')}
+  </div>`
+) : ''}
+
+<div style="margin-top:32px;border-top:1px solid #e2e8f0;padding-top:12px;text-align:center;color:#94a3b8;font-size:10px">
+  Rawabi Logistics ERP · Confidential · ${now}
+</div>
+
+<script>window.onload = function(){ window.print(); }<\/script>
+</body></html>`;
+
+  const win = window.open('', '_blank', 'width=1000,height=750');
+  if (!win) { alert('Pop-up blocked. Allow pop-ups for this site.'); return; }
+  win.document.write(html);
+  win.document.close();
 }
 
 export default function Reports() {
@@ -160,16 +267,16 @@ export default function Reports() {
 
   const loadStaticData = useCallback(async () => {
     setLoadingOther(true);
-    try {
-      const [alerts, cf] = await Promise.all([
-        reportsApi.getFleetAlerts(),
-        reportsApi.getCashFlowForecast(),
-      ]);
-      setFleetAlerts(alerts);
-      setCashFlow(cf);
-    } catch { toast.error('Failed to load fleet/cash flow data'); }
-    finally { setLoadingOther(false); }
-  }, []);
+    // Call these separately — fleet-alerts is not available to accountant role,
+    // so we must not let one failure abort the other.
+    const [alertsResult, cfResult] = await Promise.allSettled([
+      canSeeFleet ? reportsApi.getFleetAlerts() : Promise.resolve(null),
+      reportsApi.getCashFlowForecast(),
+    ]);
+    if (alertsResult.status === 'fulfilled') setFleetAlerts(alertsResult.value);
+    if (cfResult.status === 'fulfilled') setCashFlow(cfResult.value);
+    setLoadingOther(false);
+  }, [canSeeFleet]);
 
   useEffect(() => { loadPeriodData(period); }, [period, loadPeriodData]);
   useEffect(() => { loadStaticData(); }, [loadStaticData]);
@@ -239,7 +346,7 @@ export default function Reports() {
                   period === p ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'}`}>{p}</button>
             ))}
           </div>
-          <button onClick={() => exportToPDF(period)}
+          <button onClick={() => exportToPDF(period, { finData, shipKPIs, revByCustomer, routePerf, driverPerf, cashFlow, fleetAlerts })}
             className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-[#1a1d27] border border-white/10 text-slate-400 hover:text-white rounded-lg transition-colors">
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
             Export PDF

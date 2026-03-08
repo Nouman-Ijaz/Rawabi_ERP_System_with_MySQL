@@ -11,7 +11,7 @@ import { notificationsApi, authApi } from '@/lib/api';
 const NAV = [
   { name: 'Dashboard',   href: '/dashboard',   icon: 'dashboard',   roles: [] },
   { name: 'Shipments',   href: '/shipments',   icon: 'package',     roles: [] },
-  { name: 'Vehicles',    href: '/vehicles',    icon: 'truck',       roles: ['super_admin','admin','office_admin','dispatcher','accountant'] },
+  { name: 'Vehicles',    href: '/vehicles',    icon: 'truck',       roles: ['super_admin','admin','office_admin','dispatcher'] },
   { name: 'Drivers',     href: '/drivers',     icon: 'users',       roles: ['super_admin','admin','office_admin','dispatcher'] },
   { name: 'Employees',   href: '/employees',   icon: 'usergroup',   roles: ['super_admin','admin','office_admin'] },
   { name: 'Customers',   href: '/customers',   icon: 'building',    roles: ['super_admin','admin','office_admin','dispatcher','accountant'] },
@@ -20,9 +20,11 @@ const NAV = [
   { name: 'Expenses',    href: '/expenses',    icon: 'receipt',     roles: ['super_admin','admin','accountant','dispatcher'] },
   { name: 'Maintenance', href: '/maintenance', icon: 'wrench',      roles: ['super_admin','admin','dispatcher'] },
   { name: 'Reports',     href: '/reports',     icon: 'barchart',    roles: ['super_admin','admin','accountant'] },
-  { name: 'Payroll',     href: '/payroll',     icon: 'payroll',     roles: ['super_admin','admin','accountant'] },
-  { name: 'Users',       href: '/users',       icon: 'usercog',     roles: ['super_admin','admin'] },
-  { name: 'Settings',    href: '/settings',    icon: 'settings',    roles: ['super_admin','admin'] },
+  // Payroll entry is rendered conditionally in the nav below based on isPayView
+  { name: 'Payroll',        href: '/payroll', icon: 'payroll',  roles: ['super_admin','admin','accountant'] },
+  { name: 'My Salary Slips',href: '/payroll', icon: 'payroll',  roles: ['office_admin','dispatcher','driver'] },
+  { name: 'Users',          href: '/users',   icon: 'usercog',  roles: ['super_admin','admin'] },
+  { name: 'Settings',       href: '/settings',icon: 'settings', roles: ['super_admin','admin'] },
 ];
 
 const ROLE_COLORS: Record<string, string> = {
@@ -289,12 +291,17 @@ export default function MainLayout() {
               <DropdownMenuContent align="end" className="w-52 bg-[#1a1d27] border-white/10 text-slate-200">
                 <DropdownMenuLabel className="text-xs text-slate-400">{user?.firstName} {user?.lastName}</DropdownMenuLabel>
                 <DropdownMenuSeparator className="bg-white/10" />
+                <DropdownMenuItem onClick={() => navigate('/profile')} className="hover:bg-white/5 cursor-pointer text-xs">
+                  <Icon name="user" className="w-3.5 h-3.5 mr-2" /> My Profile
+                </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setShowChangePw(true)} className="hover:bg-white/5 cursor-pointer text-xs">
                   <Icon name="key" className="w-3.5 h-3.5 mr-2" /> Change Password
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => navigate('/settings')} className="hover:bg-white/5 cursor-pointer text-xs">
-                  <Icon name="settings" className="w-3.5 h-3.5 mr-2" /> Settings
-                </DropdownMenuItem>
+                {hasPermission(['super_admin','admin']) && (
+                  <DropdownMenuItem onClick={() => navigate('/settings')} className="hover:bg-white/5 cursor-pointer text-xs">
+                    <Icon name="settings" className="w-3.5 h-3.5 mr-2" /> Settings
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuSeparator className="bg-white/10" />
                 <DropdownMenuItem onClick={() => logout()} className="text-red-400 hover:bg-red-500/10 cursor-pointer text-xs">
                   <Icon name="logout" className="w-3.5 h-3.5 mr-2" /> Sign out

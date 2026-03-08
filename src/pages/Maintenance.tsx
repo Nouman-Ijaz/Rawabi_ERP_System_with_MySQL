@@ -54,7 +54,7 @@ function Field({ label, required, children }: { label:string; required?:boolean;
   );
 }
 
-const inp = "w-full bg-[#0f1117] border border-white/10 rounded-lg px-3 py-2 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/20 transition-colors [color-scheme:dark]";
+const inp = "w-full bg-[#0f1117] border border-white/10 rounded-lg px-3 py-2 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/20 transition-colors";
 const sel = inp + " appearance-none cursor-pointer";
 
 export default function Maintenance() {

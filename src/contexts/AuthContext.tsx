@@ -10,6 +10,7 @@ interface User {
   lastName: string;
   role: UserRole;
   department?: string;
+  employeeId?: number;
 }
 
 interface AuthContextType {
@@ -39,6 +40,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         id: userData.id, email: userData.email,
         firstName: userData.first_name, lastName: userData.last_name,
         role: userData.role, department: userData.department,
+        employeeId: userData.employee_id || undefined,
       });
     } catch { localStorage.removeItem('token'); }
     finally { setIsLoading(false); }

@@ -440,6 +440,10 @@ export const settingsApi = {
 // Payroll API
 export const payrollApi = {
   getStats: () => fetchApi<any>('/payroll/stats'),
+  getMySlips: () => fetchApi<any[]>('/payroll/my-slips'),
+  getSlipById: (id: number) => fetchApi<any>(`/payroll/slips/${id}`),
+  getEmployeeYTD: (employeeId: number, year?: number) =>
+    fetchApi<any>(`/payroll/employee/${employeeId}/ytd${year ? `?year=${year}` : ''}`),
   getPeriods: (params?: Record<string,string>) =>
     fetchApi<any[]>(`/payroll/periods?${new URLSearchParams(params||{}).toString()}`),
   createPeriod: (data: any) =>

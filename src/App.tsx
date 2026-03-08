@@ -8,6 +8,7 @@ import AuthLayout from './layouts/AuthLayout';
 
 // Pages
 import Login from './pages/Login';
+import TrackShipment from './pages/TrackShipment';
 import Dashboard from './pages/Dashboard';
 import Fleet from './pages/Fleet';
 import Employees from './pages/Employees';
@@ -59,6 +60,10 @@ function App() {
     <AuthProvider>
       <BrowserRouter>
         <Routes>
+          {/* Public — no auth required */}
+          <Route path="/track" element={<TrackShipment />} />
+          <Route path="/track/:trackingNumber" element={<TrackShipment />} />
+
           {/* Auth Routes */}
           <Route element={<AuthLayout />}>
             <Route path="/login" element={<Login />} />
@@ -101,12 +106,8 @@ function App() {
             {/* Reports */}
             <Route path="/reports" element={<Reports />} />
 
-            {/* Payroll */}
-            <Route path="/payroll" element={
-              <ProtectedRoute allowedRoles={['super_admin','admin','accountant']}>
-                <Payroll />
-              </ProtectedRoute>
-            } />
+            {/* Payroll — all staff can reach /payroll to see "My Slips" */}
+            <Route path="/payroll" element={<Payroll />} />
             
             {/* Admin */}
             <Route path="/users" element={
@@ -116,7 +117,11 @@ function App() {
             } />
             
             {/* Settings & Profile */}
-            <Route path="/settings" element={<Settings />} />
+            <Route path="/settings" element={
+              <ProtectedRoute allowedRoles={['super_admin','admin']}>
+                <Settings />
+              </ProtectedRoute>
+            } />
             <Route path="/profile" element={<Profile />} />
           </Route>
 
