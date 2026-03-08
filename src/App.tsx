@@ -22,6 +22,7 @@ import Payments from './pages/Payments';
 import Expenses from './pages/Expenses';
 import Maintenance from './pages/Maintenance';
 import Reports from './pages/Reports';
+import Payroll from './pages/Payroll';
 import Users from './pages/Users';
 import Settings from './pages/Settings';
 import Profile from './pages/Profile';
@@ -99,6 +100,13 @@ function App() {
             
             {/* Reports */}
             <Route path="/reports" element={<Reports />} />
+
+            {/* Payroll */}
+            <Route path="/payroll" element={
+              <ProtectedRoute allowedRoles={['super_admin','admin','accountant']}>
+                <Payroll />
+              </ProtectedRoute>
+            } />
             
             {/* Admin */}
             <Route path="/users" element={

@@ -321,4 +321,25 @@ router.get('/reports/fleet-alerts',         authorize(['super_admin','admin','di
 router.get('/reports/cash-flow-forecast',   authorize(['super_admin','admin','accountant']), reportsController.getCashFlowForecast);
 router.get('/reports/driver-performance',   authorize(REPORT_ROLES), reportsController.getDriverPeriodPerformance);
 
+// ============================================
+// PAYROLL  (super_admin + admin + accountant)
+// ============================================
+import * as payrollController from '../controllers/payrollController.js';
+const PAY_VIEW = ['super_admin','admin','accountant'];
+const PAY_EDIT = ['super_admin','admin'];
+
+router.get('/payroll/stats',                     authorize(PAY_VIEW), payrollController.getPayrollStats);
+router.get('/payroll/periods',                   authorize(PAY_VIEW), payrollController.getAllPeriods);
+router.post('/payroll/periods',                  authorize(PAY_EDIT), payrollController.createPeriod);
+router.get('/payroll/periods/:id',               authorize(PAY_VIEW), payrollController.getPeriodById);
+router.post('/payroll/periods/:id/generate',     authorize(PAY_EDIT), payrollController.generateSlips);
+router.post('/payroll/periods/:id/approve',      authorize(['super_admin']), payrollController.approvePeriod);
+router.post('/payroll/periods/:id/mark-paid',    authorize(['super_admin']), payrollController.markPaid);
+router.put('/payroll/slips/:id',                 authorize(PAY_EDIT), payrollController.updateSlip);
+router.get('/payroll/salary/:employeeId',        authorize(PAY_VIEW), payrollController.getSalaryStructure);
+router.post('/payroll/salary/:employeeId',       authorize(PAY_EDIT), payrollController.upsertSalaryStructure);
+router.get('/payroll/loans',                     authorize(PAY_VIEW), payrollController.getLoans);
+router.post('/payroll/loans',                    authorize(PAY_EDIT), payrollController.createLoan);
+router.put('/payroll/loans/:id/status',          authorize(PAY_EDIT), payrollController.updateLoanStatus);
+
 export default router;

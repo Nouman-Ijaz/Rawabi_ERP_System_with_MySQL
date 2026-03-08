@@ -437,6 +437,34 @@ export const settingsApi = {
     fetchApi<any>('/settings', { method: 'PUT', body: JSON.stringify(data) }),
 };
 
+// Payroll API
+export const payrollApi = {
+  getStats: () => fetchApi<any>('/payroll/stats'),
+  getPeriods: (params?: Record<string,string>) =>
+    fetchApi<any[]>(`/payroll/periods?${new URLSearchParams(params||{}).toString()}`),
+  createPeriod: (data: any) =>
+    fetchApi<any>('/payroll/periods', { method: 'POST', body: JSON.stringify(data) }),
+  getPeriodById: (id: number) => fetchApi<any>(`/payroll/periods/${id}`),
+  generateSlips: (id: number) =>
+    fetchApi<any>(`/payroll/periods/${id}/generate`, { method: 'POST', body: '{}' }),
+  approvePeriod: (id: number) =>
+    fetchApi<any>(`/payroll/periods/${id}/approve`, { method: 'POST', body: '{}' }),
+  markPaid: (id: number, paymentDate?: string) =>
+    fetchApi<any>(`/payroll/periods/${id}/mark-paid`, { method: 'POST', body: JSON.stringify({ paymentDate }) }),
+  updateSlip: (id: number, data: any) =>
+    fetchApi<any>(`/payroll/slips/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  getSalaryStructure: (employeeId: number) =>
+    fetchApi<any[]>(`/payroll/salary/${employeeId}`),
+  upsertSalaryStructure: (employeeId: number, data: any) =>
+    fetchApi<any>(`/payroll/salary/${employeeId}`, { method: 'POST', body: JSON.stringify(data) }),
+  getLoans: (params?: Record<string,string>) =>
+    fetchApi<any[]>(`/payroll/loans?${new URLSearchParams(params||{}).toString()}`),
+  createLoan: (data: any) =>
+    fetchApi<any>('/payroll/loans', { method: 'POST', body: JSON.stringify(data) }),
+  updateLoanStatus: (id: number, status: string) =>
+    fetchApi<any>(`/payroll/loans/${id}/status`, { method: 'PUT', body: JSON.stringify({ status }) }),
+};
+
 // Export all APIs
 export const api = {
   auth: authApi,
@@ -450,6 +478,7 @@ export const api = {
   maintenance: maintenanceApi,
   reports: reportsApi,
   settings: settingsApi,
+  payroll: payrollApi,
 };
 
 export default api;
