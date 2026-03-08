@@ -10,7 +10,7 @@ function generateEmployeeCode() {
 // ============================================
 export async function getAllDrivers(req, res) {
     try {
-        const { status, search, available, rating, vehicleAssignment, sortExperience, sortTrips, page = 1, limit = 50 } = req.query;
+        const { status, search, available, rating, vehicleAssignment, licenseType, sortExperience, sortTrips, page = 1, limit = 50 } = req.query;
 
         let sql = `
             SELECT
@@ -66,6 +66,11 @@ export async function getAllDrivers(req, res) {
             sql += ' AND v.id IS NOT NULL';
         } else if (vehicleAssignment === 'unassigned') {
             sql += ' AND v.id IS NULL';
+        }
+
+        if (licenseType) {
+            sql += ' AND d.license_type = ?';
+            params.push(licenseType);
         }
 
         if (sortTrips === 'desc')            sql += ' ORDER BY d.total_trips DESC';
