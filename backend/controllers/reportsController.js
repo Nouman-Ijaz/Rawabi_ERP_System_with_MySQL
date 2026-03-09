@@ -1,3 +1,4 @@
+import { asyncHandler } from '../middleware/asyncHandler.js';
 import { query, get } from '../database/db.js';
 
 // ─────────────────────────────────────────────────────────────────
@@ -38,8 +39,7 @@ function barePeriodFilter(period, field = 'order_date') {
 // ─────────────────────────────────────────────────────────────────
 // 1. SHIPMENT KPIs  — period-aware operational summary
 // ─────────────────────────────────────────────────────────────────
-export async function getShipmentKPIs(req, res) {
-    try {
+export const getShipmentKPIs = asyncHandler(async (req, res) => {
         const { period = 'month' } = req.query;
         const f = shipmentPeriodFilters(period);
 
@@ -94,19 +94,14 @@ export async function getShipmentKPIs(req, res) {
             delivered_delta: deliveredDelta,
             prev_delivered:  prevKpi?.delivered || 0,
         });
-    } catch (error) {
-        console.error('Shipment KPIs error:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
-}
+});
 
 // ─────────────────────────────────────────────────────────────────
 // 2. REVENUE BY CUSTOMER  — top 8 customers, period-aware
 //    month = current month, quarter = current quarter,
 //    year  = all-time (full history, not just calendar year)
 // ─────────────────────────────────────────────────────────────────
-export async function getRevenueByCustomer(req, res) {
-    try {
+export const getRevenueByCustomer = asyncHandler(async (req, res) => {
         const { period = 'month' } = req.query;
 
         // year = all-time; month/quarter use the standard period filter
@@ -142,17 +137,12 @@ export async function getRevenueByCustomer(req, res) {
         }));
 
         res.json({ customers: result, total_revenue: total });
-    } catch (error) {
-        console.error('Revenue by customer error:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
-}
+});
 
 // ─────────────────────────────────────────────────────────────────
 // 3. ROUTE PERFORMANCE  — top 8 lanes by volume, period-aware
 // ─────────────────────────────────────────────────────────────────
-export async function getRoutePerformance(req, res) {
-    try {
+export const getRoutePerformance = asyncHandler(async (req, res) => {
         const { period = 'month' } = req.query;
         const f = barePeriodFilter(period, 's.order_date');
 
@@ -208,18 +198,13 @@ export async function getRoutePerformance(req, res) {
         }));
 
         res.json(result);
-    } catch (error) {
-        console.error('Route performance error:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
-}
+});
 
 // ─────────────────────────────────────────────────────────────────
 // 4. FLEET ALERTS  — documents expiring within 60 days
 //    Not period-filtered (always real-time)
 // ─────────────────────────────────────────────────────────────────
-export async function getFleetAlerts(req, res) {
-    try {
+export const getFleetAlerts = asyncHandler(async (req, res) => {
         const [vehicleAlerts, driverAlerts] = await Promise.all([
 
             query(`
@@ -271,18 +256,13 @@ export async function getFleetAlerts(req, res) {
             driver_alerts:  driverAlerts,
             total_alerts:   vehicleAlerts.length + driverAlerts.length,
         });
-    } catch (error) {
-        console.error('Fleet alerts error:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
-}
+});
 
 // ─────────────────────────────────────────────────────────────────
 // 5. CASH FLOW FORECAST  — collected history + expected upcoming
 //    Not period-filtered (always forward-looking)
 // ─────────────────────────────────────────────────────────────────
-export async function getCashFlowForecast(req, res) {
-    try {
+export const getCashFlowForecast = asyncHandler(async (req, res) => {
         const [collected, expected, overdueTotal] = await Promise.all([
 
             // Last 6 months of actual collections
@@ -339,18 +319,13 @@ export async function getCashFlowForecast(req, res) {
             expected,
             overdue: overdueTotal,
         });
-    } catch (error) {
-        console.error('Cash flow forecast error:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
-}
+});
 
 // ─────────────────────────────────────────────────────────────────
 // 6. DRIVER PERIOD PERFORMANCE  — period-aware with prev-period delta
 //    ALL non-aggregated SELECT columns are in GROUP BY (ONLY_FULL_GROUP_BY safe)
 // ─────────────────────────────────────────────────────────────────
-export async function getDriverPeriodPerformance(req, res) {
-    try {
+export const getDriverPeriodPerformance = asyncHandler(async (req, res) => {
         const { period = 'month' } = req.query;
         const f = shipmentPeriodFilters(period);
 
@@ -428,8 +403,4 @@ export async function getDriverPeriodPerformance(req, res) {
         }));
 
         res.json(result);
-    } catch (error) {
-        console.error('Driver period performance error:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
-}
+});

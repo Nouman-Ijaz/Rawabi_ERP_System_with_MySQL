@@ -3,23 +3,9 @@ import { maintenanceApi, vehiclesApi } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 
-const fmtDate = (d: string) => d ? new Date(d).toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' }) : '—';
-const fmtSAR  = (n: any)    => `SAR ${Number(n || 0).toLocaleString('en-US', { minimumFractionDigits:0, maximumFractionDigits:0 })}`;
+import { fmtDate, fmtSAR } from '@/lib/format';
 
-const STATUS_STYLE: Record<string, string> = {
-  scheduled:   'bg-blue-500/15 text-blue-400',
-  in_progress: 'bg-amber-500/15 text-amber-400',
-  completed:   'bg-emerald-500/15 text-emerald-400',
-  cancelled:   'bg-slate-500/15 text-slate-400',
-};
-const TYPE_STYLE: Record<string, string> = {
-  routine:      'bg-blue-500/15 text-blue-400',
-  repair:       'bg-red-500/15 text-red-400',
-  inspection:   'bg-purple-500/15 text-purple-400',
-  tire_change:  'bg-amber-500/15 text-amber-400',
-  oil_change:   'bg-cyan-500/15 text-cyan-400',
-  other:        'bg-slate-500/15 text-slate-400',
-};
+import { MAINTENANCE_STATUS, MAINTENANCE_TYPE } from '@/lib/statusStyles';
 const TYPES    = ['routine','repair','inspection','tire_change','oil_change','other'];
 const STATUSES = ['scheduled','in_progress','completed','cancelled'];
 
@@ -265,7 +251,7 @@ export default function Maintenance() {
                       </div>
                     </td>
                     <td className="py-3 px-4">
-                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium capitalize ${TYPE_STYLE[r.maintenance_type] || 'bg-slate-500/15 text-slate-400'}`}>
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium capitalize ${MAINTENANCE_TYPE[r.maintenance_type] || 'bg-slate-500/15 text-slate-400'}`}>
                         {(r.maintenance_type || '').replace('_', ' ')}
                       </span>
                     </td>
@@ -274,7 +260,7 @@ export default function Maintenance() {
                     <td className="py-3 px-4 text-slate-400">{r.service_provider || '—'}</td>
                     <td className="py-3 px-4 text-slate-300 tabular-nums">{r.cost ? fmtSAR(r.cost) : '—'}</td>
                     <td className="py-3 px-4">
-                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium capitalize ${STATUS_STYLE[r.status] || 'bg-slate-500/15 text-slate-400'}`}>
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium capitalize ${MAINTENANCE_STATUS[r.status] || 'bg-slate-500/15 text-slate-400'}`}>
                         {(r.status || '').replace('_', ' ')}
                       </span>
                     </td>

@@ -3,8 +3,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { customersApi } from '@/lib/api';
 import { toast } from 'sonner';
 
-const fmtSAR  = (n: any) => `SAR ${Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-const fmtDate = (d: string) => d ? new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
+import { fmtSAR, fmtDate } from '@/lib/format';
 
 const TYPE_STYLE: Record<string, string> = {
   corporate:  'bg-blue-500/15 text-blue-400',
@@ -12,11 +11,7 @@ const TYPE_STYLE: Record<string, string> = {
   government: 'bg-purple-500/15 text-purple-400',
   regular:    'bg-slate-500/15 text-slate-400',
 };
-const STATUS_STYLE: Record<string, string> = {
-  active:    'bg-emerald-500/15 text-emerald-400',
-  inactive:  'bg-slate-500/15 text-slate-400',
-  suspended: 'bg-red-500/15 text-red-400',
-};
+import { CUSTOMER_STATUS } from '@/lib/statusStyles';
 
 function Field({ label, value }: { label: string; value: any }) {
   return (
@@ -216,7 +211,7 @@ export default function Customers() {
                   <td className="px-4 py-3 text-white tabular-nums">{c.total_shipments || 0}</td>
                   <td className="px-4 py-3 text-emerald-400 tabular-nums font-semibold">{fmtSAR(c.total_revenue)}</td>
                   <td className="px-4 py-3">
-                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${STATUS_STYLE[c.status] || STATUS_STYLE.active}`}>{c.status}</span>
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${CUSTOMER_STATUS[c.status] || STATUS_STYLE.active}`}>{c.status}</span>
                   </td>
                   <td className="px-4 py-3"><svg className="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5l7 7-7 7"/></svg></td>
                 </tr>

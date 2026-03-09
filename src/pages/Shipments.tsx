@@ -7,7 +7,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
-
+import { ROLES } from '@/lib/roles';
 // ── types ─────────────────────────────────────────────────────────
 interface Shipment {
   id: number;
@@ -35,23 +35,7 @@ interface Vehicle  { id: number; plate_number: string; vehicle_type: string; }
 interface Driver   { id: number; first_name: string; last_name: string; }
 
 // ── constants ─────────────────────────────────────────────────────
-const STATUS_STYLES: Record<string, string> = {
-  pending:    'bg-yellow-500/15 text-yellow-400 border-yellow-500/20',
-  confirmed:  'bg-blue-500/15 text-blue-400 border-blue-500/20',
-  picked_up:  'bg-purple-500/15 text-purple-400 border-purple-500/20',
-  in_transit: 'bg-indigo-500/15 text-indigo-400 border-indigo-500/20',
-  customs:    'bg-orange-500/15 text-orange-400 border-orange-500/20',
-  delivered:  'bg-emerald-500/15 text-emerald-400 border-emerald-500/20',
-  cancelled:  'bg-red-500/15 text-red-400 border-red-500/20',
-  returned:   'bg-slate-500/15 text-slate-400 border-slate-500/20',
-};
-
-const APPROVAL_STYLES: Record<string, string> = {
-  draft:            'bg-slate-500/15 text-slate-400',
-  pending_approval: 'bg-amber-500/15 text-amber-400',
-  approved:         'bg-emerald-500/15 text-emerald-400',
-  rejected:         'bg-red-500/15 text-red-400',
-};
+import { SHIPMENT_STATUS, APPROVAL_STATUS } from '@/lib/statusStyles';
 
 const emptyForm = {
   customerId: '', orderDate: new Date().toISOString().split('T')[0],
@@ -136,9 +120,9 @@ export default function Shipments() {
   const [assignForm, setAssignForm]     = useState({ vehicleId: 'none', driverId: 'none' });
   const [form, setForm] = useState({ ...emptyForm });
 
-  const canCreate   = hasPermission(['super_admin', 'admin', 'dispatcher']);
-  const canApprove  = hasPermission(['super_admin', 'admin']);
-  const canDispatch = hasPermission(['super_admin', 'admin', 'dispatcher']);
+  const canCreate   = hasPermission(ROLES.OPERATIONS);
+  const canApprove  = hasPermission(ROLES.ADMIN_UP);
+  const canDispatch = hasPermission(ROLES.OPERATIONS);
 
   const loadShipments = useCallback(async () => {
     setLoading(true);
@@ -385,13 +369,13 @@ export default function Shipments() {
                       {s.vehicle_plate && <p className="text-slate-500 mt-0.5">{s.vehicle_plate}</p>}
                     </td>
                     <td className="px-4 py-3">
-                      <span className={`inline-block px-2 py-0.5 rounded-full text-[11px] font-medium border ${STATUS_STYLES[s.status] || 'bg-slate-500/15 text-slate-400 border-slate-500/20'}`}>
+                      <span className={`inline-block px-2 py-0.5 rounded-full text-[11px] font-medium border ${SHIPMENT_STATUS[s.status] || 'bg-slate-500/15 text-slate-400 border-slate-500/20'}`}>
                         {s.status.replace(/_/g, ' ')}
                       </span>
                     </td>
                     {canDispatch && (
                       <td className="px-4 py-3">
-                        <span className={`inline-block px-2 py-0.5 rounded-full text-[11px] font-medium ${APPROVAL_STYLES[s.approval_status] || 'bg-slate-500/15 text-slate-400'}`}>
+                        <span className={`inline-block px-2 py-0.5 rounded-full text-[11px] font-medium ${APPROVAL_STATUS[s.approval_status] || 'bg-slate-500/15 text-slate-400'}`}>
                           {s.approval_status?.replace(/_/g, ' ') || 'draft'}
                         </span>
                         {s.rejection_reason && (

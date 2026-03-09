@@ -1,3 +1,4 @@
+import { asyncHandler } from '../middleware/asyncHandler.js';
 import { query, get, run } from '../database/db.js';
 
 function generateShipmentNumber() {
@@ -16,8 +17,7 @@ function generateTrackingNumber() {
 // GET ALL SHIPMENTS
 // Drivers automatically scoped to own records.
 // ============================================
-export async function getAllShipments(req, res) {
-    try {
+export const getAllShipments = asyncHandler(async (req, res) => {
         const { status, customer, driver, vehicle, from, to, search, approval_status, page = 1, limit = 50 } = req.query;
 
         let sql = `
@@ -84,17 +84,12 @@ export async function getAllShipments(req, res) {
                 totalPages: Math.ceil(countResult.total / parseInt(limit)),
             },
         });
-    } catch (error) {
-        console.error('Get shipments error:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
-}
+});
 
 // ============================================
 // GET SHIPMENT BY ID
 // ============================================
-export async function getShipmentById(req, res) {
-    try {
+export const getShipmentById = asyncHandler(async (req, res) => {
         const { id } = req.params;
 
         const shipment = await get(
@@ -145,17 +140,12 @@ export async function getShipmentById(req, res) {
         const invoice = await get('SELECT * FROM invoices WHERE shipment_id = ?', [id]);
 
         res.json({ ...shipment, tracking, documents, invoice });
-    } catch (error) {
-        console.error('Get shipment error:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
-}
+});
 
 // ============================================
 // CREATE SHIPMENT
 // ============================================
-export async function createShipment(req, res) {
-    try {
+export const createShipment = asyncHandler(async (req, res) => {
         const {
             customerId, orderDate, requestedPickupDate, requestedDeliveryDate,
             originAddress, originCity, originCountry, destinationAddress, destinationCity,
@@ -236,17 +226,12 @@ export async function createShipment(req, res) {
             trackingNumber,
             message: 'Shipment created successfully',
         });
-    } catch (error) {
-        console.error('Create shipment error:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
-}
+});
 
 // ============================================
 // UPDATE SHIPMENT
 // ============================================
-export async function updateShipment(req, res) {
-    try {
+export const updateShipment = asyncHandler(async (req, res) => {
         const { id } = req.params;
         const updates = req.body;
 
@@ -303,18 +288,13 @@ export async function updateShipment(req, res) {
         );
 
         res.json({ message: 'Shipment updated successfully' });
-    } catch (error) {
-        console.error('Update shipment error:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
-}
+});
 
 // ============================================
 // UPDATE SHIPMENT STATUS
 // Drivers can only update their own shipments.
 // ============================================
-export async function updateStatus(req, res) {
-    try {
+export const updateStatus = asyncHandler(async (req, res) => {
         const { id } = req.params;
         const { status, location, notes } = req.body;
 
@@ -368,17 +348,12 @@ export async function updateStatus(req, res) {
         );
 
         res.json({ message: 'Shipment status updated successfully' });
-    } catch (error) {
-        console.error('Update shipment status error:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
-}
+});
 
 // ============================================
 // ASSIGN VEHICLE AND DRIVER
 // ============================================
-export async function assignVehicleAndDriver(req, res) {
-    try {
+export const assignVehicleAndDriver = asyncHandler(async (req, res) => {
         const { id } = req.params;
         const { vehicleId, driverId } = req.body;
 
@@ -442,17 +417,12 @@ export async function assignVehicleAndDriver(req, res) {
         );
 
         res.json({ message: 'Vehicle and driver assigned successfully' });
-    } catch (error) {
-        console.error('Assign vehicle/driver error:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
-}
+});
 
 // ============================================
 // DELETE SHIPMENT
 // ============================================
-export async function deleteShipment(req, res) {
-    try {
+export const deleteShipment = asyncHandler(async (req, res) => {
         const { id } = req.params;
 
         const shipment = await get('SELECT * FROM shipments WHERE id = ?', [id]);
@@ -470,17 +440,12 @@ export async function deleteShipment(req, res) {
         );
 
         res.json({ message: 'Shipment deleted successfully' });
-    } catch (error) {
-        console.error('Delete shipment error:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
-}
+});
 
 // ============================================
 // PUBLIC TRACK BY TRACKING NUMBER
 // ============================================
-export async function trackShipment(req, res) {
-    try {
+export const trackShipment = asyncHandler(async (req, res) => {
         const { trackingNumber } = req.params;
 
         // Accept both the short tracking code (TRK...) and the full shipment number (RWB-YYYY-NNN)
@@ -521,17 +486,12 @@ export async function trackShipment(req, res) {
             },
             tracking,
         });
-    } catch (error) {
-        console.error('Track shipment error:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
-}
+});
 
 // ============================================
 // SHIPMENT STATS
 // ============================================
-export async function getShipmentStats(req, res) {
-    try {
+export const getShipmentStats = asyncHandler(async (req, res) => {
         const { period = 'month' } = req.query;
 
         let dateFilter = '';
@@ -554,17 +514,12 @@ export async function getShipmentStats(req, res) {
         ]);
 
         res.json({ byStatus, byTransportMode, topRoutes, monthlyTrend });
-    } catch (error) {
-        console.error('Get shipment stats error:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
-}
+});
 
 // ============================================
 // APPROVAL WORKFLOW
 // ============================================
-export async function submitForApproval(req, res) {
-    try {
+export const submitForApproval = asyncHandler(async (req, res) => {
         const { id } = req.params;
         const shipment = await get('SELECT * FROM shipments WHERE id = ?', [id]);
         if (!shipment) return res.status(404).json({ error: 'Shipment not found' });
@@ -584,14 +539,9 @@ export async function submitForApproval(req, res) {
         );
 
         res.json({ message: 'Shipment submitted for approval' });
-    } catch (error) {
-        console.error('Submit approval error:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
-}
+});
 
-export async function approveShipment(req, res) {
-    try {
+export const approveShipment = asyncHandler(async (req, res) => {
         const { id } = req.params;
         const shipment = await get('SELECT * FROM shipments WHERE id = ?', [id]);
         if (!shipment) return res.status(404).json({ error: 'Shipment not found' });
@@ -607,14 +557,9 @@ export async function approveShipment(req, res) {
         );
 
         res.json({ message: 'Shipment approved successfully' });
-    } catch (error) {
-        console.error('Approve shipment error:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
-}
+});
 
-export async function rejectShipment(req, res) {
-    try {
+export const rejectShipment = asyncHandler(async (req, res) => {
         const { id } = req.params;
         const reason = req.body.rejection_reason || req.body.reason || null;
         const shipment = await get('SELECT * FROM shipments WHERE id = ?', [id]);
@@ -631,11 +576,7 @@ export async function rejectShipment(req, res) {
         );
 
         res.json({ message: 'Shipment rejected' });
-    } catch (error) {
-        console.error('Reject shipment error:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
-}
+});
 
 // ============================================
 // UPLOAD SHIPMENT DOCUMENT (POD etc.)
@@ -654,8 +595,7 @@ const DOC_TYPE_PERMISSIONS = {
     other:             ['super_admin', 'admin', 'dispatcher'],
 };
 
-export async function uploadDocument(req, res) {
-    try {
+export const uploadDocument = asyncHandler(async (req, res) => {
         const { id } = req.params;
         const { documentType, notes } = req.body;
         const docType = documentType || 'other';
@@ -706,17 +646,12 @@ export async function uploadDocument(req, res) {
             filePath: relativePath,
             message: 'Document uploaded successfully',
         });
-    } catch (error) {
-        console.error('Upload document error:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
-}
+});
 
 // ============================================
 // DELETE SHIPMENT DOCUMENT
 // ============================================
-export async function deleteDocument(req, res) {
-    try {
+export const deleteDocument = asyncHandler(async (req, res) => {
         const { id, docId } = req.params;
 
         const doc = await get(
@@ -744,8 +679,4 @@ export async function deleteDocument(req, res) {
         await run('DELETE FROM shipment_documents WHERE id = ?', [docId]);
 
         res.json({ message: 'Document deleted' });
-    } catch (error) {
-        console.error('Delete document error:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
-}
+});

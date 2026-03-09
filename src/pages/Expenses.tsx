@@ -3,20 +3,9 @@ import { useAuth } from '@/contexts/AuthContext';
 import { financeApi } from '@/lib/api';
 import { toast } from 'sonner';
 
-const fmtSAR = (n: number | string) =>
-  new Intl.NumberFormat('en-US', { style: 'currency', currency: 'SAR', minimumFractionDigits: 2 }).format(Number(n) || 0);
+import { fmtSAR, fmtDate, today } from '@/lib/format';
 
-const fmtDate = (d: string) =>
-  d ? new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
-
-const today = () => new Date().toISOString().split('T')[0];
-
-const STATUS_STYLE: Record<string, { bg: string; text: string }> = {
-  pending:  { bg: 'bg-amber-500/15',   text: 'text-amber-400' },
-  approved: { bg: 'bg-emerald-500/15', text: 'text-emerald-400' },
-  rejected: { bg: 'bg-red-500/15',     text: 'text-red-400' },
-  paid:     { bg: 'bg-blue-500/15',    text: 'text-blue-400' },
-};
+import { EXPENSE_STATUS } from '@/lib/statusStyles';
 
 const CATEGORY_COLORS: Record<string, string> = {
   fuel:          'bg-orange-500/20 text-orange-400',
@@ -239,7 +228,7 @@ export default function Expenses() {
               ) : expenses.length === 0 ? (
                 <tr><td colSpan={10} className="px-4 py-12 text-center text-slate-500">No expenses found</td></tr>
               ) : expenses.map(e => {
-                const ss = STATUS_STYLE[e.status] || STATUS_STYLE.pending;
+                const ss = EXPENSE_STATUS[e.status] || STATUS_STYLE.pending;
                 const cs = CATEGORY_COLORS[e.category] || CATEGORY_COLORS.other;
                 return (
                   <tr key={e.id} className="border-b border-white/5 hover:bg-white/5 transition-colors">

@@ -4,8 +4,7 @@ import { employeesApi } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 
-const fmtDate  = (d: string) => d ? new Date(d).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}) : '—';
-const fmtSAR   = (n: any)    => n ? `SAR ${Number(n).toLocaleString()}` : '—';
+import { fmtDate, fmtSAR } from '@/lib/format';
 const initials = (f: string, l: string) => `${f?.[0]||''}${l?.[0]||''}`.toUpperCase();
 const docSt    = (d: number|null): 'expired'|'soon'|'ok'|'none' => {
   if (d===null||d===undefined) return 'none';
@@ -14,10 +13,7 @@ const docSt    = (d: number|null): 'expired'|'soon'|'ok'|'none' => {
   return 'ok';
 };
 
-const STATUS_STYLE: Record<string,string> = {
-  active:'bg-emerald-500/15 text-emerald-400', inactive:'bg-slate-500/15 text-slate-400',
-  on_leave:'bg-amber-500/15 text-amber-400',   terminated:'bg-red-500/15 text-red-400',
-};
+import { EMPLOYEE_STATUS } from '@/lib/statusStyles';
 const DEPT_CLS: Record<string,string> = {
   operations:'bg-blue-500/15 text-blue-400',  logistics:'bg-cyan-500/15 text-cyan-400',
   finance:'bg-emerald-500/15 text-emerald-400', hr:'bg-purple-500/15 text-purple-400',
@@ -344,7 +340,7 @@ export default function Employees(){
                       </td>
                       <td className="py-3 px-4 text-slate-300 tabular-nums">{fmtSAR(e.salary)}</td>
                       <td className="py-3 px-4">
-                        <span className={`px-1.5 py-0.5 rounded-md text-[10px] font-medium capitalize ${STATUS_STYLE[e.status]||'bg-slate-500/15 text-slate-400'}`}>
+                        <span className={`px-1.5 py-0.5 rounded-md text-[10px] font-medium capitalize ${EMPLOYEE_STATUS[e.status]||'bg-slate-500/15 text-slate-400'}`}>
                           {(e.status||'').replace('_',' ')}
                         </span>
                       </td>

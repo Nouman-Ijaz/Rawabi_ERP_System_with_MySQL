@@ -3,13 +3,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { financeApi } from '@/lib/api';
 import { toast } from 'sonner';
 
-const fmtSAR = (n: number | string) =>
-  new Intl.NumberFormat('en-US', { style: 'currency', currency: 'SAR', minimumFractionDigits: 2 }).format(Number(n) || 0);
-
-const fmtDate = (d: string) =>
-  d ? new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
-
-const today = () => new Date().toISOString().split('T')[0];
+import { fmtSAR, fmtDate, today } from '@/lib/format';
 
 const METHOD_STYLE: Record<string, string> = {
   cash:          'bg-emerald-500/15 text-emerald-400',

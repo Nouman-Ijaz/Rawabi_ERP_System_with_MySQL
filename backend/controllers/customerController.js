@@ -1,3 +1,4 @@
+import { asyncHandler } from '../middleware/asyncHandler.js';
 import { query, get, run } from '../database/db.js';
 
 // Generate customer code
@@ -6,8 +7,7 @@ function generateCustomerCode() {
 }
 
 // Get all customers with optional filters
-export async function getAllCustomers(req, res) {
-    try {
+export const getAllCustomers = asyncHandler(async (req, res) => {
         const { status, type, search, page = 1, limit = 50 } = req.query;
         
         let sql = `
@@ -77,15 +77,10 @@ export async function getAllCustomers(req, res) {
                 totalPages: Math.ceil(countResult.total / parseInt(limit))
             }
         });
-    } catch (error) {
-        console.error('Get customers error:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
-}
+});
 
 // Get customer by ID
-export async function getCustomerById(req, res) {
-    try {
+export const getCustomerById = asyncHandler(async (req, res) => {
         const { id } = req.params;
         
         const customer = await get(
@@ -150,15 +145,10 @@ export async function getCustomerById(req, res) {
             invoices,
             stats
         });
-    } catch (error) {
-        console.error('Get customer error:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
-}
+});
 
 // Create customer
-export async function createCustomer(req, res) {
-    try {
+export const createCustomer = asyncHandler(async (req, res) => {
         const {
             companyName, contactPerson, email, phone, mobile, address, city, country,
             taxNumber, crNumber, creditLimit, paymentTerms, customerType, notes
@@ -196,15 +186,10 @@ export async function createCustomer(req, res) {
             customerCode,
             message: 'Customer created successfully'
         });
-    } catch (error) {
-        console.error('Create customer error:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
-}
+});
 
 // Update customer
-export async function updateCustomer(req, res) {
-    try {
+export const updateCustomer = asyncHandler(async (req, res) => {
         const { id } = req.params;
         const updates = req.body;
 
@@ -245,15 +230,10 @@ export async function updateCustomer(req, res) {
         );
 
         res.json({ message: 'Customer updated successfully' });
-    } catch (error) {
-        console.error('Update customer error:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
-}
+});
 
 // Delete customer
-export async function deleteCustomer(req, res) {
-    try {
+export const deleteCustomer = asyncHandler(async (req, res) => {
         const { id } = req.params;
 
         const customer = await get('SELECT * FROM customers WHERE id = ?', [id]);
@@ -276,15 +256,10 @@ export async function deleteCustomer(req, res) {
         );
 
         res.json({ message: 'Customer deleted successfully' });
-    } catch (error) {
-        console.error('Delete customer error:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
-}
+});
 
 // Add contact
-export async function addContact(req, res) {
-    try {
+export const addContact = asyncHandler(async (req, res) => {
         const { id } = req.params;
         const { name, position, email, phone, isPrimary } = req.body;
 
@@ -310,15 +285,10 @@ export async function addContact(req, res) {
             id: result.id,
             message: 'Contact added successfully'
         });
-    } catch (error) {
-        console.error('Add contact error:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
-}
+});
 
 // Update contact
-export async function updateContact(req, res) {
-    try {
+export const updateContact = asyncHandler(async (req, res) => {
         const { id, contactId } = req.params;
         const { name, position, email, phone, isPrimary } = req.body;
 
@@ -336,15 +306,10 @@ export async function updateContact(req, res) {
         );
 
         res.json({ message: 'Contact updated successfully' });
-    } catch (error) {
-        console.error('Update contact error:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
-}
+});
 
 // Delete contact
-export async function deleteContact(req, res) {
-    try {
+export const deleteContact = asyncHandler(async (req, res) => {
         const { id, contactId } = req.params;
 
         await run(
@@ -353,15 +318,10 @@ export async function deleteContact(req, res) {
         );
 
         res.json({ message: 'Contact deleted successfully' });
-    } catch (error) {
-        console.error('Delete contact error:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
-}
+});
 
 // Get customer summary
-export async function getCustomerSummary(req, res) {
-    try {
+export const getCustomerSummary = asyncHandler(async (req, res) => {
         const byType = await query('SELECT customer_type, COUNT(*) as count FROM customers GROUP BY customer_type');
         const byStatus = await query('SELECT status, COUNT(*) as count FROM customers GROUP BY status');
         
@@ -380,8 +340,4 @@ export async function getCustomerSummary(req, res) {
             byStatus,
             topCustomers
         });
-    } catch (error) {
-        console.error('Get customer summary error:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
-}
+});

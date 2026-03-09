@@ -17,6 +17,22 @@ import * as reportsController     from '../controllers/reportsController.js';
 const router = express.Router();
 
 // ============================================
+// ROLE CONSTANTS — use these everywhere below.
+// Never write a raw role array in a route again.
+// ============================================
+const SUPER_ADMIN  = ['super_admin'];
+const ADMIN_UP     = ['super_admin', 'admin'];
+const FINANCE      = ['super_admin', 'admin', 'accountant'];
+const OPERATIONS   = ['super_admin', 'admin', 'dispatcher'];
+const MANAGEMENT   = ['super_admin', 'admin', 'office_admin'];
+const FLEET_VIEW   = ['super_admin', 'admin', 'office_admin', 'dispatcher'];
+const PAY_VIEW     = ['super_admin', 'admin', 'accountant'];
+const PAY_EDIT     = ['super_admin', 'admin'];
+const REPORT_ROLES = ['super_admin', 'admin', 'accountant', 'dispatcher'];
+const SHIPMENTS_ALL   = ['super_admin', 'admin', 'office_admin', 'dispatcher', 'accountant', 'driver'];
+const CUSTOMER_VIEW   = ['super_admin', 'admin', 'office_admin', 'dispatcher', 'accountant'];
+
+// ============================================
 // PUBLIC ROUTES
 // ============================================
 router.post('/auth/login', authController.login);
@@ -43,74 +59,74 @@ router.put('/profile/change-password',  authController.changePassword);
 // ============================================
 // USERS  (super_admin only for write, admin can read)
 // ============================================
-router.get('/users',                authorize(['super_admin', 'admin']),       userController.getAllUsers);
-router.get('/users/stats',          authorize(['super_admin', 'admin']),       userController.getUserStats);
-router.get('/users/:id',            authorize(['super_admin', 'admin']),       userController.getUserById);
-router.post('/users',               authorize(['super_admin']),                userController.createUser);
-router.put('/users/:id',            authorize(['super_admin']),                userController.updateUser);
-router.delete('/users/:id',         authorize(['super_admin']),                userController.deleteUser);
+router.get('/users',                authorize(ADMIN_UP),       userController.getAllUsers);
+router.get('/users/stats',          authorize(ADMIN_UP),       userController.getUserStats);
+router.get('/users/:id',            authorize(ADMIN_UP),       userController.getUserById);
+router.post('/users',               authorize(SUPER_ADMIN),    userController.createUser);
+router.put('/users/:id',            authorize(SUPER_ADMIN),    userController.updateUser);
+router.delete('/users/:id',         authorize(SUPER_ADMIN),                userController.deleteUser);
 // Super admin resets any user's password; any user changes their own via /me/change-password
-router.put('/users/:id/reset-password', authorize(['super_admin']),           userController.resetPassword);
+router.put('/users/:id/reset-password', authorize(SUPER_ADMIN),           userController.resetPassword);
 router.put('/me/change-password',   authorize([]),                            userController.changeOwnPassword);
 
 // ============================================
 // EMPLOYEES  (super_admin, admin, office_admin)
 // ============================================
-router.get('/employees',             authorize(['super_admin','admin','office_admin']),                     employeeController.getAllEmployees);
-router.get('/employees/departments', authorize(['super_admin','admin','office_admin']),                     employeeController.getDepartments);
-router.get('/employees/stats',       authorize(['super_admin','admin','office_admin']),                     employeeController.getEmployeeStats);
-router.get('/employees/:id',         authorize(['super_admin','admin','office_admin']),                     employeeController.getEmployeeById);
-router.post('/employees',            authorize(['super_admin','admin','office_admin']), uploadEmployee.single('photo'), employeeController.createEmployee);
-router.put('/employees/:id',         authorize(['super_admin','admin','office_admin']), uploadEmployee.single('photo'), employeeController.updateEmployee);
-router.delete('/employees/:id',      authorize(['super_admin','admin']),                                    employeeController.deleteEmployee);
+router.get('/employees',             authorize(MANAGEMENT), employeeController.getAllEmployees);
+router.get('/employees/departments', authorize(MANAGEMENT), employeeController.getDepartments);
+router.get('/employees/stats',       authorize(MANAGEMENT), employeeController.getEmployeeStats);
+router.get('/employees/:id',         authorize(MANAGEMENT), employeeController.getEmployeeById);
+router.post('/employees',            authorize(MANAGEMENT), uploadEmployee.single('photo'), employeeController.createEmployee);
+router.put('/employees/:id',         authorize(MANAGEMENT), uploadEmployee.single('photo'), employeeController.updateEmployee);
+router.delete('/employees/:id',      authorize(ADMIN_UP),                                    employeeController.deleteEmployee);
 
 // ============================================
 // VEHICLES  (drivers can read their own)
 // ============================================
-router.get('/vehicles',              authorize(['super_admin','admin','office_admin','dispatcher']), vehicleController.getAllVehicles);
-router.get('/vehicles/summary',      authorize(['super_admin','admin','dispatcher']),               vehicleController.getVehicleSummary);
-router.get('/vehicles/:id',          authorize(['super_admin','admin','office_admin','dispatcher']), vehicleController.getVehicleById);
-router.post('/vehicles',             authorize(['super_admin','admin']),                                         vehicleController.createVehicle);
-router.put('/vehicles/:id',          authorize(['super_admin','admin']),                                         vehicleController.updateVehicle);
-router.delete('/vehicles/:id',       authorize(['super_admin','admin']),                                         vehicleController.deleteVehicle);
-router.post('/vehicles/:id/assign-driver',   authorize(['super_admin','admin','dispatcher']), vehicleController.assignDriver);
-router.post('/vehicles/:id/unassign-driver', authorize(['super_admin','admin','dispatcher']), vehicleController.unassignDriver);
-router.post('/vehicles/:id/fuel',    authorize(['super_admin','admin','dispatcher']),                            vehicleController.addFuelRecord);
+router.get('/vehicles',              authorize(FLEET_VIEW), vehicleController.getAllVehicles);
+router.get('/vehicles/summary',      authorize(OPERATIONS), vehicleController.getVehicleSummary);
+router.get('/vehicles/:id',          authorize(FLEET_VIEW), vehicleController.getVehicleById);
+router.post('/vehicles',             authorize(ADMIN_UP),   vehicleController.createVehicle);
+router.put('/vehicles/:id',          authorize(ADMIN_UP),   vehicleController.updateVehicle);
+router.delete('/vehicles/:id',       authorize(ADMIN_UP),   vehicleController.deleteVehicle);
+router.post('/vehicles/:id/assign-driver',   authorize(OPERATIONS), vehicleController.assignDriver);
+router.post('/vehicles/:id/unassign-driver', authorize(OPERATIONS), vehicleController.unassignDriver);
+router.post('/vehicles/:id/fuel',    authorize(OPERATIONS), vehicleController.addFuelRecord);
 
 // ============================================
 // DRIVERS
 // Drivers can read their own profile only.
 // ============================================
-router.get('/drivers/available',     authorize(['super_admin','admin','dispatcher']),                            driverController.getAvailableDrivers);
-router.get('/drivers',               authorize(['super_admin','admin','office_admin','dispatcher']),             driverController.getAllDrivers);
-router.get('/drivers/:id',           authorize(['super_admin','admin','office_admin','dispatcher','driver']),    driverController.getDriverById);
-router.get('/drivers/:id/performance', authorize(['super_admin','admin','dispatcher','driver']),                 driverController.getDriverPerformance);
-router.post('/drivers',              authorize(['super_admin','admin']), uploadDriver.single('photo'),           driverController.createDriver);
-router.put('/drivers/:id',           authorize(['super_admin','admin']), uploadDriver.single('photo'),           driverController.updateDriver);
-router.put('/drivers/:id/rating',    authorize(['super_admin','admin']),                                         driverController.updateDriverRating);
-router.delete('/drivers/:id',        authorize(['super_admin','admin']),                                         driverController.deleteDriver);
+router.get('/drivers/available',     authorize(OPERATIONS),                            driverController.getAvailableDrivers);
+router.get('/drivers',               authorize(FLEET_VIEW),             driverController.getAllDrivers);
+router.get('/drivers/:id',           authorize([...FLEET_VIEW, 'driver']), driverController.getDriverById);
+router.get('/drivers/:id/performance', authorize([...OPERATIONS,'driver']), driverController.getDriverPerformance);
+router.post('/drivers',              authorize(ADMIN_UP), uploadDriver.single('photo'),           driverController.createDriver);
+router.put('/drivers/:id',           authorize(ADMIN_UP), uploadDriver.single('photo'),           driverController.updateDriver);
+router.put('/drivers/:id/rating',    authorize(ADMIN_UP),                                         driverController.updateDriverRating);
+router.delete('/drivers/:id',        authorize(ADMIN_UP),                                         driverController.deleteDriver);
 
 // ============================================
 // SHIPMENTS
 // Drivers can only see their own shipments.
 // ============================================
-router.get('/shipments',             authorize(['super_admin','admin','office_admin','dispatcher','accountant','driver']), shipmentController.getAllShipments);
-router.get('/shipments/stats',       authorize(['super_admin','admin','dispatcher','accountant']),                         shipmentController.getShipmentStats);
-router.get('/shipments/:id',         authorize(['super_admin','admin','office_admin','dispatcher','accountant','driver']), shipmentController.getShipmentById);
-router.post('/shipments',            authorize(['super_admin','admin','dispatcher']),                                      shipmentController.createShipment);
-router.put('/shipments/:id',         authorize(['super_admin','admin','dispatcher']),                                      shipmentController.updateShipment);
-router.put('/shipments/:id/status',  authorize(['super_admin','admin','dispatcher','driver']),                             shipmentController.updateStatus);
-router.post('/shipments/:id/assign', authorize(['super_admin','admin','dispatcher']),                                      shipmentController.assignVehicleAndDriver);
-router.delete('/shipments/:id',      authorize(['super_admin','admin']),                                                   shipmentController.deleteShipment);
+router.get('/shipments',             authorize(SHIPMENTS_ALL), shipmentController.getAllShipments);
+router.get('/shipments/stats',       authorize([...OPERATIONS,'accountant']),                         shipmentController.getShipmentStats);
+router.get('/shipments/:id',         authorize(SHIPMENTS_ALL), shipmentController.getShipmentById);
+router.post('/shipments',            authorize(OPERATIONS),                                      shipmentController.createShipment);
+router.put('/shipments/:id',         authorize(OPERATIONS),                                      shipmentController.updateShipment);
+router.put('/shipments/:id/status',  authorize([...OPERATIONS,'driver']),                             shipmentController.updateStatus);
+router.post('/shipments/:id/assign', authorize(OPERATIONS),                                      shipmentController.assignVehicleAndDriver);
+router.delete('/shipments/:id',      authorize(ADMIN_UP),                                                   shipmentController.deleteShipment);
 
 // Shipment approval workflow
-router.put('/shipments/:id/submit-approval',  authorize(['super_admin','admin','dispatcher']),   shipmentController.submitForApproval);
-router.put('/shipments/:id/approve',          authorize(['super_admin','admin']),                shipmentController.approveShipment);
-router.put('/shipments/:id/reject',           authorize(['super_admin','admin']),                shipmentController.rejectShipment);
+router.put('/shipments/:id/submit-approval',  authorize(OPERATIONS),   shipmentController.submitForApproval);
+router.put('/shipments/:id/approve',          authorize(ADMIN_UP),                shipmentController.approveShipment);
+router.put('/shipments/:id/reject',           authorize(ADMIN_UP),                shipmentController.rejectShipment);
 
 // Shipment documents (POD)
-router.post('/shipments/:id/documents',          authorize(['super_admin','admin','dispatcher','driver']), uploadDocument.single('file'), shipmentController.uploadDocument);
-router.delete('/shipments/:id/documents/:docId', authorize(['super_admin','admin','dispatcher','driver']), shipmentController.deleteDocument);
+router.post('/shipments/:id/documents',          authorize([...OPERATIONS,'driver']), uploadDocument.single('file'), shipmentController.uploadDocument);
+router.delete('/shipments/:id/documents/:docId', authorize([...OPERATIONS,'driver']), shipmentController.deleteDocument);
 
 // ── NOTIFICATIONS ─────────────────────────────────────────────────
 // Notifications — role-aware, user-specific
@@ -221,7 +237,7 @@ router.get('/notifications', authorize(), async (req, res) => {
 
 
 // Available vehicles and drivers for assignment (not currently on active shipment)
-router.get('/available/vehicles', authorize(['super_admin','admin','dispatcher']), async (req, res) => {
+router.get('/available/vehicles', authorize(OPERATIONS), async (req, res) => {
     const { query } = await import('../database/db.js');
     const rows = await query(
         `SELECT v.id, v.plate_number, v.vehicle_type
@@ -238,7 +254,7 @@ router.get('/available/vehicles', authorize(['super_admin','admin','dispatcher']
     );
     res.json(rows);
 });
-router.get('/available/drivers', authorize(['super_admin','admin','dispatcher']), async (req, res) => {
+router.get('/available/drivers', authorize(OPERATIONS), async (req, res) => {
     const { query } = await import('../database/db.js');
     const rows = await query(
         `SELECT d.id, e.first_name, e.last_name, d.status as driver_status
@@ -260,36 +276,36 @@ router.get('/available/drivers', authorize(['super_admin','admin','dispatcher'])
 // ============================================
 // CUSTOMERS  (drivers cannot access)
 // ============================================
-router.get('/customers',             authorize(['super_admin','admin','office_admin','dispatcher','accountant']), customerController.getAllCustomers);
-router.get('/customers/summary',     authorize(['super_admin','admin','accountant']),                             customerController.getCustomerSummary);
-router.get('/customers/:id',         authorize(['super_admin','admin','office_admin','dispatcher','accountant']), customerController.getCustomerById);
-router.post('/customers',            authorize(['super_admin','admin','dispatcher']),                             customerController.createCustomer);
-router.put('/customers/:id',         authorize(['super_admin','admin','office_admin']),                           customerController.updateCustomer);
-router.delete('/customers/:id',      authorize(['super_admin','admin']),                                          customerController.deleteCustomer);
-router.post('/customers/:id/contacts',       authorize(['super_admin','admin','office_admin']), customerController.addContact);
-router.put('/customers/:id/contacts/:contactId', authorize(['super_admin','admin','office_admin']), customerController.updateContact);
-router.delete('/customers/:id/contacts/:contactId', authorize(['super_admin','admin']),         customerController.deleteContact);
+router.get('/customers',             authorize(CUSTOMER_VIEW), customerController.getAllCustomers);
+router.get('/customers/summary',     authorize(FINANCE),                             customerController.getCustomerSummary);
+router.get('/customers/:id',         authorize(CUSTOMER_VIEW), customerController.getCustomerById);
+router.post('/customers',            authorize(OPERATIONS),                             customerController.createCustomer);
+router.put('/customers/:id',         authorize(MANAGEMENT),                           customerController.updateCustomer);
+router.delete('/customers/:id',      authorize(ADMIN_UP),                                          customerController.deleteCustomer);
+router.post('/customers/:id/contacts',       authorize(MANAGEMENT), customerController.addContact);
+router.put('/customers/:id/contacts/:contactId', authorize(MANAGEMENT), customerController.updateContact);
+router.delete('/customers/:id/contacts/:contactId', authorize(ADMIN_UP),         customerController.deleteContact);
 
 // ============================================
 // FINANCE — INVOICES  (accountant, admin, super_admin)
 // ============================================
-router.get('/invoices',              authorize(['super_admin','admin','accountant']),    financeController.getAllInvoices);
-router.get('/invoices/:id',          authorize(['super_admin','admin','accountant']),    financeController.getInvoiceById);
-router.post('/invoices',             authorize(['super_admin','admin','accountant']),    financeController.createInvoice);
-router.put('/invoices/:id/status',   authorize(['super_admin','admin','accountant']),    financeController.updateInvoiceStatus);
+router.get('/invoices',              authorize(FINANCE),    financeController.getAllInvoices);
+router.get('/invoices/:id',          authorize(FINANCE),    financeController.getInvoiceById);
+router.post('/invoices',             authorize(FINANCE),    financeController.createInvoice);
+router.put('/invoices/:id/status',   authorize(FINANCE),    financeController.updateInvoiceStatus);
 
 // ============================================
 // FINANCE — PAYMENTS
 // ============================================
-router.get('/payments',              authorize(['super_admin','admin','accountant']),    financeController.getAllPayments);
-router.post('/payments',             authorize(['super_admin','admin','accountant']),    financeController.createPayment);
+router.get('/payments',              authorize(FINANCE),    financeController.getAllPayments);
+router.post('/payments',             authorize(FINANCE),    financeController.createPayment);
 
 // ============================================
 // FINANCE — EXPENSES
 // ============================================
-router.get('/expenses',              authorize(['super_admin','admin','accountant']),    financeController.getAllExpenses);
-router.post('/expenses',             authorize(['super_admin','admin','accountant','dispatcher']), financeController.createExpense);
-router.put('/expenses/:id/approve',  authorize(['super_admin','admin']),                financeController.approveExpense);
+router.get('/expenses',              authorize(FINANCE),    financeController.getAllExpenses);
+router.post('/expenses',             authorize([...FINANCE,'dispatcher']), financeController.createExpense);
+router.put('/expenses/:id/approve',  authorize(ADMIN_UP),                financeController.approveExpense);
 
 // ============================================
 // FINANCE — REPORTS & SUMMARY
@@ -297,37 +313,34 @@ router.put('/expenses/:id/approve',  authorize(['super_admin','admin']),        
 router.get('/finance/summary',            authorize(['super_admin','admin','accountant']),   financeController.getFinancialSummary);
 router.get('/finance/deliverable-shipments', authorize(['super_admin','admin','accountant']),   financeController.getDeliverableShipments);
 router.get('/finance/company-settings',      authorize(['super_admin','admin','accountant']),   financeController.getCompanySettings);
-router.get('/settings',                      authorize(['super_admin','admin']),               financeController.getAllSettings);
-router.put('/settings',                      authorize(['super_admin']),                       financeController.updateSettings);
+router.get('/settings',                      authorize(ADMIN_UP),               financeController.getAllSettings);
+router.put('/settings',                      authorize(SUPER_ADMIN),                       financeController.updateSettings);
 
 // ============================================
 // MAINTENANCE  (drivers cannot access)
 // ============================================
-router.get('/maintenance',           authorize(['super_admin','admin','dispatcher']),   maintenanceController.getAllMaintenance);
-router.get('/maintenance/upcoming',  authorize(['super_admin','admin','dispatcher']),   maintenanceController.getUpcomingMaintenance);
-router.get('/maintenance/summary',   authorize(['super_admin','admin','dispatcher']),   maintenanceController.getMaintenanceSummary);
-router.get('/maintenance/:id',       authorize(['super_admin','admin','dispatcher']),   maintenanceController.getMaintenanceById);
-router.post('/maintenance',          authorize(['super_admin','admin']),                maintenanceController.createMaintenance);
-router.put('/maintenance/:id',       authorize(['super_admin','admin']),                maintenanceController.updateMaintenance);
-router.delete('/maintenance/:id',    authorize(['super_admin','admin']),                maintenanceController.deleteMaintenance);
+router.get('/maintenance',           authorize(OPERATIONS),   maintenanceController.getAllMaintenance);
+router.get('/maintenance/upcoming',  authorize(OPERATIONS),   maintenanceController.getUpcomingMaintenance);
+router.get('/maintenance/summary',   authorize(OPERATIONS),   maintenanceController.getMaintenanceSummary);
+router.get('/maintenance/:id',       authorize(OPERATIONS),   maintenanceController.getMaintenanceById);
+router.post('/maintenance',          authorize(ADMIN_UP),                maintenanceController.createMaintenance);
+router.put('/maintenance/:id',       authorize(ADMIN_UP),                maintenanceController.updateMaintenance);
+router.delete('/maintenance/:id',    authorize(ADMIN_UP),                maintenanceController.deleteMaintenance);
 
 // ============================================
 // REPORTS & ANALYTICS  (6 period-aware endpoints)
 // ============================================
-const REPORT_ROLES = ['super_admin','admin','accountant','dispatcher'];
 router.get('/reports/shipment-kpis',        authorize(REPORT_ROLES), reportsController.getShipmentKPIs);
 router.get('/reports/revenue-by-customer',  authorize(REPORT_ROLES), reportsController.getRevenueByCustomer);
 router.get('/reports/route-performance',    authorize(REPORT_ROLES), reportsController.getRoutePerformance);
-router.get('/reports/fleet-alerts',         authorize(['super_admin','admin','dispatcher']), reportsController.getFleetAlerts);
-router.get('/reports/cash-flow-forecast',   authorize(['super_admin','admin','accountant']), reportsController.getCashFlowForecast);
+router.get('/reports/fleet-alerts',         authorize(OPERATIONS), reportsController.getFleetAlerts);
+router.get('/reports/cash-flow-forecast',   authorize(FINANCE), reportsController.getCashFlowForecast);
 router.get('/reports/driver-performance',   authorize(REPORT_ROLES), reportsController.getDriverPeriodPerformance);
 
 // ============================================
 // PAYROLL  (super_admin + admin + accountant)
 // ============================================
 import * as payrollController from '../controllers/payrollController.js';
-const PAY_VIEW = ['super_admin','admin','accountant'];
-const PAY_EDIT = ['super_admin','admin'];
 
 router.get('/payroll/stats',                     authorize(PAY_VIEW), payrollController.getPayrollStats);
 router.get('/payroll/my-slips',                  authorize([]), payrollController.getMySlips);
@@ -337,8 +350,8 @@ router.get('/payroll/periods',                   authorize(PAY_VIEW), payrollCon
 router.post('/payroll/periods',                  authorize(PAY_EDIT), payrollController.createPeriod);
 router.get('/payroll/periods/:id',               authorize(PAY_VIEW), payrollController.getPeriodById);
 router.post('/payroll/periods/:id/generate',     authorize(PAY_EDIT), payrollController.generateSlips);
-router.post('/payroll/periods/:id/approve',      authorize(['super_admin']), payrollController.approvePeriod);
-router.post('/payroll/periods/:id/mark-paid',    authorize(['super_admin']), payrollController.markPaid);
+router.post('/payroll/periods/:id/approve',      authorize(SUPER_ADMIN), payrollController.approvePeriod);
+router.post('/payroll/periods/:id/mark-paid',    authorize(SUPER_ADMIN), payrollController.markPaid);
 router.put('/payroll/slips/:id',                 authorize(PAY_EDIT), payrollController.updateSlip);
 router.get('/payroll/salary/:employeeId',        authorize(PAY_VIEW), payrollController.getSalaryStructure);
 router.post('/payroll/salary/:employeeId',       authorize(PAY_EDIT), payrollController.upsertSalaryStructure);

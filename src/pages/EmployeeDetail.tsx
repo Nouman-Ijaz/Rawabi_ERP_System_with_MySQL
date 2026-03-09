@@ -4,20 +4,14 @@ import { employeesApi } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 
-const fmtDate = (d: string) => d ? new Date(d).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}) : '—';
-const fmtSAR  = (n: any)    => n ? `SAR ${Number(n).toLocaleString('en-SA',{minimumFractionDigits:2})}` : '—';
+import { fmtDate, fmtSAR } from '@/lib/format';
 const initials= (f:string,l:string)=>`${f?.[0]||''}${l?.[0]||''}`.toUpperCase();
 
 const AVC=['from-blue-500 to-blue-700','from-emerald-500 to-emerald-700','from-purple-500 to-purple-700',
            'from-amber-500 to-amber-700','from-cyan-500 to-cyan-700','from-rose-500 to-rose-700'];
 const av=(id:number)=>AVC[id%AVC.length];
 
-const STATUS_STYLE:Record<string,string>={
-  active:'bg-emerald-500/15 text-emerald-400 border-emerald-500/30',
-  inactive:'bg-slate-500/15 text-slate-400 border-slate-500/30',
-  on_leave:'bg-amber-500/15 text-amber-400 border-amber-500/30',
-  terminated:'bg-red-500/15 text-red-400 border-red-500/30',
-};
+import { EMPLOYEE_STATUS } from '@/lib/statusStyles';
 
 const daysUntil=(d:string)=>d?Math.ceil((new Date(d).getTime()-Date.now())/86400000):null;
 const docStatus=(d:string)=>{
@@ -140,7 +134,7 @@ export default function EmployeeDetail(){
                 <p className="text-xs text-slate-500 font-mono mt-0.5 print:text-gray-500">{emp.employee_code}</p>
               </div>
               <div className="flex items-center gap-2 flex-wrap">
-                <span className={`px-2 py-1 rounded-lg text-xs font-medium border capitalize ${STATUS_STYLE[emp.status]||'bg-slate-500/15 text-slate-400 border-slate-500/30'}`}>
+                <span className={`px-2 py-1 rounded-lg text-xs font-medium border capitalize ${EMPLOYEE_STATUS[emp.status]||'bg-slate-500/15 text-slate-400 border-slate-500/30'}`}>
                   {(emp.status||'').replace('_',' ')}
                 </span>
                 <span className="px-2 py-1 rounded-lg text-xs font-medium bg-slate-500/10 text-slate-400 border border-white/5 capitalize">

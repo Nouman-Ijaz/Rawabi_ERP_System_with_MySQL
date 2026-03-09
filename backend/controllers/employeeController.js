@@ -1,3 +1,4 @@
+import { asyncHandler } from '../middleware/asyncHandler.js';
 import { query, get, run } from '../database/db.js';
 import { getPublicUrl } from '../config/multer.js';
 
@@ -9,8 +10,7 @@ function generateEmployeeCode() {
 }
 
 // ── GET ALL ────────────────────────────────────────────────────────────
-export async function getAllEmployees(req, res) {
-    try {
+export const getAllEmployees = asyncHandler(async (req, res) => {
         const {
             status, department, search, employment_type,
             sort = 'created_at', dir = 'DESC',
@@ -85,15 +85,10 @@ export async function getAllEmployees(req, res) {
                 totalPages: Math.ceil(countResult.total / parseInt(limit))
             }
         });
-    } catch (error) {
-        console.error('Get employees error:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
-}
+});
 
 // ── GET BY ID ──────────────────────────────────────────────────────────
-export async function getEmployeeById(req, res) {
-    try {
+export const getEmployeeById = asyncHandler(async (req, res) => {
         const { id } = req.params;
         const employee = await get(
             `SELECT e.*,
@@ -114,15 +109,10 @@ export async function getEmployeeById(req, res) {
              FROM drivers d WHERE d.employee_id = ?`, [id]
         );
         res.json({ ...employee, driverInfo });
-    } catch (error) {
-        console.error('Get employee error:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
-}
+});
 
 // ── CREATE ─────────────────────────────────────────────────────────────
-export async function createEmployee(req, res) {
-    try {
+export const createEmployee = asyncHandler(async (req, res) => {
         const b = req.body;
         const code = generateEmployeeCode();
         const photoUrl = req.file ? getPublicUrl(req.file.filename, 'employees') : null;
@@ -176,15 +166,10 @@ export async function createEmployee(req, res) {
              JSON.stringify({ firstName: b.firstName, lastName: b.lastName, department: b.department })]
         );
         res.status(201).json({ id: result.id, employeeCode: code, message: 'Employee created successfully' });
-    } catch (error) {
-        console.error('Create employee error:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
-}
+});
 
 // ── UPDATE ─────────────────────────────────────────────────────────────
-export async function updateEmployee(req, res) {
-    try {
+export const updateEmployee = asyncHandler(async (req, res) => {
         const { id } = req.params;
         const b = req.body;
 
@@ -268,16 +253,27 @@ export async function updateEmployee(req, res) {
             'INSERT INTO activity_logs (user_id, action, entity_type, entity_id, old_values, new_values) VALUES (?,?,?,?,?,?)',
             [req.user.id, 'UPDATE_EMPLOYEE', 'employee', id, JSON.stringify(emp), JSON.stringify(b)]
         );
+
+        // ── Driver lock: only lock driver when HR terminates or deactivates.
+        // Driver operational status (available/on_trip/on_leave) is managed
+        // exclusively by Fleet/dispatch — HR should not override it.
+        // Exception: terminated/inactive employees must not be dispatched.
+        if (n(b.status) && n(b.status) !== emp.status) {
+            const lockStatuses = { terminated: 'suspended', inactive: 'off_duty' };
+            const lockTo = lockStatuses[b.status];
+            if (lockTo) {
+                const driverRecord = await get('SELECT id FROM drivers WHERE employee_id = ?', [id]);
+                if (driverRecord) {
+                    await run('UPDATE drivers SET status = ? WHERE employee_id = ?', [lockTo, id]);
+                }
+            }
+        }
+
         res.json({ message: 'Employee updated successfully', photoUrl });
-    } catch (error) {
-        console.error('Update employee error:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
-}
+});
 
 // ── DELETE ─────────────────────────────────────────────────────────────
-export async function deleteEmployee(req, res) {
-    try {
+export const deleteEmployee = asyncHandler(async (req, res) => {
         const { id } = req.params;
         const emp = await get('SELECT * FROM employees WHERE id = ?', [id]);
         if (!emp) return res.status(404).json({ error: 'Employee not found' });
@@ -298,28 +294,18 @@ export async function deleteEmployee(req, res) {
             [req.user.id, 'DELETE_EMPLOYEE', 'employee', id, JSON.stringify(emp)]
         );
         res.json({ message: 'Employee deleted successfully' });
-    } catch (error) {
-        console.error('Delete employee error:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
-}
+});
 
 // ── DEPARTMENTS ────────────────────────────────────────────────────────
-export async function getDepartments(req, res) {
-    try {
+export const getDepartments = asyncHandler(async (req, res) => {
         const depts = await query(
             'SELECT DISTINCT department FROM employees WHERE department IS NOT NULL ORDER BY department'
         );
         res.json(depts.map(d => d.department));
-    } catch (error) {
-        console.error('Get departments error:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
-}
+});
 
 // ── STATS — flat structure ─────────────────────────────────────────────
-export async function getEmployeeStats(req, res) {
-    try {
+export const getEmployeeStats = asyncHandler(async (req, res) => {
         const total      = await get('SELECT COUNT(*) AS c FROM employees');
         const active     = await get("SELECT COUNT(*) AS c FROM employees WHERE status = 'active'");
         const on_leave   = await get("SELECT COUNT(*) AS c FROM employees WHERE status = 'on_leave'");
@@ -365,8 +351,4 @@ export async function getEmployeeStats(req, res) {
             expired_documents_count:  expired.c,
             byDepartment,
         });
-    } catch (error) {
-        console.error('Get employee stats error:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
-}
+});

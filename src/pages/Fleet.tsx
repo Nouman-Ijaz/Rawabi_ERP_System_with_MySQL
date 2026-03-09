@@ -1,11 +1,11 @@
 import { useEffect, useState, useCallback } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { vehiclesApi, driversApi } from '@/lib/api';
 import { toast } from 'sonner';
+import { ROLES } from '@/lib/roles';
 
-const fmtDate = (d: string) =>
-  d ? new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
+import { fmtDate } from '@/lib/format';
 const isExpiringSoon = (d: string) => {
   if (!d) return false;
   const n = Math.ceil((new Date(d).getTime() - Date.now()) / 86400000);
@@ -87,6 +87,7 @@ const EMPTY_VEHICLE = {
   plateNumber:'',vehicleType:'truck_7ton',brand:'',model:'',year:'',
   capacityKg:'',capacityCbm:'',fuelType:'diesel',trailerType:'',
   purchaseDate:'',purchasePrice:'',registrationExpiry:'',insuranceExpiry:'',notes:'',
+  status:'active',
 };
 const EMPTY_DRIVER = {
   firstName:'',lastName:'',email:'',phone:'',nationality:'Saudi',
@@ -94,14 +95,16 @@ const EMPTY_DRIVER = {
   emergencyContactName:'',emergencyContactPhone:'',
   licenseNumber:'',licenseType:'heavy',licenseExpiry:'',
   medicalCertificateExpiry:'',yearsOfExperience:'0',
+  status:'available',
 };
 
 export default function Fleet() {
   const { hasPermission } = useAuth();
-  const canEdit = hasPermission(['super_admin','admin']);
+  const canEdit = hasPermission(ROLES.ADMIN_UP);
   const location = useLocation();
-  const [tab, setTab] = useState<'vehicles'|'drivers'>(location.pathname.startsWith('/drivers') ? 'drivers' : 'vehicles');
-  useEffect(() => { setTab(location.pathname.startsWith('/drivers') ? 'drivers' : 'vehicles'); }, [location.pathname]);
+  const navigate = useNavigate();
+  const [tab, setTab] = useState<'vehicles'|'drivers'>(location.pathname.endsWith('/drivers') ? 'drivers' : 'vehicles');
+  useEffect(() => { setTab(location.pathname.endsWith('/drivers') ? 'drivers' : 'vehicles'); }, [location.pathname]);
 
   // Vehicle state
   const [vehicles, setVehicles] = useState<any[]>([]);
@@ -182,7 +185,8 @@ export default function Fleet() {
     setVForm({ plateNumber:v.plate_number||'', vehicleType:v.vehicle_type||'truck_7ton', brand:v.brand||'', model:v.model||'',
       year:v.year||'', capacityKg:v.capacity_kg||'', capacityCbm:v.capacity_cbm||'', fuelType:v.fuel_type||'diesel',
       trailerType:v.trailer_type||'', purchaseDate:v.purchase_date?.split('T')[0]||'', purchasePrice:v.purchase_price||'',
-      registrationExpiry:v.registration_expiry?.split('T')[0]||'', insuranceExpiry:v.insurance_expiry?.split('T')[0]||'', notes:v.notes||'' });
+      registrationExpiry:v.registration_expiry?.split('T')[0]||'', insuranceExpiry:v.insurance_expiry?.split('T')[0]||'',
+      notes:v.notes||'', status:v.status||'active' });
     setEditVId(v.id); setShowVForm(true);
   };
   const handleVSave = async () => {
@@ -208,7 +212,7 @@ export default function Fleet() {
       address:d.address||'', hireDate:d.hire_date?.split('T')[0]||'', emergencyContactName:d.emergency_contact_name||'',
       emergencyContactPhone:d.emergency_contact_phone||'', licenseNumber:d.license_number||'', licenseType:d.license_type||'heavy',
       licenseExpiry:d.license_expiry?.split('T')[0]||'', medicalCertificateExpiry:d.medical_certificate_expiry?.split('T')[0]||'',
-      yearsOfExperience:d.years_of_experience||'0' });
+      yearsOfExperience:d.years_of_experience||'0', status:d.driver_status||'available' });
     setEditDId(d.id); setShowDForm(true);
   };
   const handleDSave = async () => {
@@ -271,7 +275,7 @@ export default function Fleet() {
       {/* Tabs */}
       <div className="flex gap-2">
         {(['vehicles','drivers'] as const).map(t=>(
-          <button key={t} onClick={()=>setTab(t)}
+          <button key={t} onClick={()=>navigate(`/fleet/${t}`)}
             className={`flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-lg transition-colors capitalize ${tab===t?'bg-blue-600 text-white':'bg-[#1a1d27] text-slate-400 hover:text-white border border-white/5'}`}>
             {t}
             {t==='vehicles'&&expiringV>0&&<span className="bg-amber-500 text-black text-[10px] font-bold px-1.5 py-0.5 rounded-full">{expiringV}</span>}
@@ -505,6 +509,15 @@ export default function Fleet() {
                 <FDate label="Purchase Date" value={vForm.purchaseDate} onChange={(e:any)=>vf('purchaseDate',e.target.value)}/>
                 <FDate label="Registration Expiry" value={vForm.registrationExpiry} onChange={(e:any)=>vf('registrationExpiry',e.target.value)}/>
                 <FDate label="Insurance Expiry" value={vForm.insuranceExpiry} onChange={(e:any)=>vf('insuranceExpiry',e.target.value)}/>
+                {editVId && (
+                  <FSel label="Status" value={vForm.status} onChange={(e:any)=>vf('status',e.target.value)}>
+                    <option value="active">Active</option>
+                    <option value="maintenance">Maintenance</option>
+                    <option value="retired">Retired</option>
+                    <option value="sold">Sold</option>
+                    <option value="accident">Accident</option>
+                  </FSel>
+                )}
               </div>
             </div>
             <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-white/5">
@@ -552,6 +565,15 @@ export default function Fleet() {
                 <FDate label="License Expiry" value={dForm.licenseExpiry} onChange={(e:any)=>df('licenseExpiry',e.target.value)}/>
                 <FDate label="Medical Certificate Expiry" value={dForm.medicalCertificateExpiry} onChange={(e:any)=>df('medicalCertificateExpiry',e.target.value)}/>
                 <FIn label="Years of Experience" type="number" min="0" value={dForm.yearsOfExperience} onChange={(e:any)=>df('yearsOfExperience',e.target.value)}/>
+                {editDId && (
+                  <FSel label="Status" value={dForm.status} onChange={(e:any)=>df('status',e.target.value)}>
+                    <option value="available">Available</option>
+                    <option value="on_trip">On Trip</option>
+                    <option value="on_leave">On Leave</option>
+                    <option value="suspended">Suspended</option>
+                    <option value="off_duty">Off Duty</option>
+                  </FSel>
+                )}
               </div>
             </div>
             <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-white/5">

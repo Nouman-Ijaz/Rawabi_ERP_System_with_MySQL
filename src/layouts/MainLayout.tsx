@@ -7,24 +7,23 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { toast } from 'sonner';
 import { notificationsApi, authApi } from '@/lib/api';
+import { ROLES } from '@/lib/roles';
 
 const NAV = [
-  { name: 'Dashboard',   href: '/dashboard',   icon: 'dashboard',   roles: [] },
-  { name: 'Shipments',   href: '/shipments',   icon: 'package',     roles: [] },
-  { name: 'Vehicles',    href: '/vehicles',    icon: 'truck',       roles: ['super_admin','admin','office_admin','dispatcher'] },
-  { name: 'Drivers',     href: '/drivers',     icon: 'users',       roles: ['super_admin','admin','office_admin','dispatcher'] },
-  { name: 'Employees',   href: '/employees',   icon: 'usergroup',   roles: ['super_admin','admin','office_admin'] },
-  { name: 'Customers',   href: '/customers',   icon: 'building',    roles: ['super_admin','admin','office_admin','dispatcher','accountant'] },
-  { name: 'Invoices',    href: '/invoices',    icon: 'filetext',    roles: ['super_admin','admin','accountant'] },
-  { name: 'Payments',    href: '/payments',    icon: 'creditcard',  roles: ['super_admin','admin','accountant'] },
-  { name: 'Expenses',    href: '/expenses',    icon: 'receipt',     roles: ['super_admin','admin','accountant','dispatcher'] },
-  { name: 'Maintenance', href: '/maintenance', icon: 'wrench',      roles: ['super_admin','admin','dispatcher'] },
-  { name: 'Reports',     href: '/reports',     icon: 'barchart',    roles: ['super_admin','admin','accountant'] },
-  // Payroll entry is rendered conditionally in the nav below based on isPayView
-  { name: 'Payroll',        href: '/payroll', icon: 'payroll',  roles: ['super_admin','admin','accountant'] },
-  { name: 'My Salary Slips',href: '/payroll', icon: 'payroll',  roles: ['office_admin','dispatcher','driver'] },
-  { name: 'Users',          href: '/users',   icon: 'usercog',  roles: ['super_admin','admin'] },
-  { name: 'Settings',       href: '/settings',icon: 'settings', roles: ['super_admin','admin'] },
+  { name: 'Dashboard',      href: '/dashboard',   icon: 'dashboard',   roles: [] },
+  { name: 'Shipments',      href: '/shipments',   icon: 'package',     roles: [] },
+  { name: 'Fleet',          href: '/fleet',       icon: 'truck',       roles: ROLES.FLEET_VIEW },
+  { name: 'Employees',      href: '/employees',   icon: 'usergroup',   roles: ROLES.MANAGEMENT },
+  { name: 'Customers',      href: '/customers',   icon: 'building',    roles: ROLES.CUSTOMER_VIEW },
+  { name: 'Invoices',       href: '/invoices',    icon: 'filetext',    roles: ROLES.FINANCE },
+  { name: 'Payments',       href: '/payments',    icon: 'creditcard',  roles: ROLES.FINANCE },
+  { name: 'Expenses',       href: '/expenses',    icon: 'receipt',     roles: [...ROLES.FINANCE, 'dispatcher'] as any },
+  { name: 'Maintenance',    href: '/maintenance', icon: 'wrench',      roles: ROLES.OPERATIONS },
+  { name: 'Reports',        href: '/reports',     icon: 'barchart',    roles: ROLES.REPORTS },
+  { name: 'Payroll',        href: '/payroll',     icon: 'payroll',     roles: ROLES.PAY_VIEW },
+  { name: 'My Salary Slips',href: '/payroll',     icon: 'payroll',     roles: ['office_admin','dispatcher','driver'] as any },
+  { name: 'Users',          href: '/users',       icon: 'usercog',     roles: ROLES.ADMIN_UP },
+  { name: 'Settings',       href: '/settings',    icon: 'settings',    roles: ROLES.ADMIN_UP },
 ];
 
 const ROLE_COLORS: Record<string, string> = {
@@ -176,14 +175,8 @@ export default function MainLayout() {
           })}
         </nav>
 
-        {/* Sign out */}
-        <div className="p-3 border-t border-white/5">
-          <button onClick={() => { logout(); toast.success('Logged out'); }}
-            className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium text-slate-500 hover:bg-red-500/10 hover:text-red-400 transition-colors border border-transparent hover:border-red-500/20">
-            <Icon name="logout" className="w-4 h-4" />
-            Sign out
-          </button>
-        </div>
+        {/* Nav bottom spacer */}
+        <div className="h-3" />
       </aside>
 
       {/* ── MAIN ─────────────────────────────────────── */}
@@ -297,13 +290,13 @@ export default function MainLayout() {
                 <DropdownMenuItem onClick={() => setShowChangePw(true)} className="hover:bg-white/5 cursor-pointer text-xs">
                   <Icon name="key" className="w-3.5 h-3.5 mr-2" /> Change Password
                 </DropdownMenuItem>
-                {hasPermission(['super_admin','admin']) && (
+                {hasPermission(ROLES.ADMIN_UP) && (
                   <DropdownMenuItem onClick={() => navigate('/settings')} className="hover:bg-white/5 cursor-pointer text-xs">
                     <Icon name="settings" className="w-3.5 h-3.5 mr-2" /> Settings
                   </DropdownMenuItem>
                 )}
                 <DropdownMenuSeparator className="bg-white/10" />
-                <DropdownMenuItem onClick={() => logout()} className="text-red-400 hover:bg-red-500/10 cursor-pointer text-xs">
+                <DropdownMenuItem onClick={() => { logout(); toast.success('Logged out'); }} className="text-red-400 hover:bg-red-500/10 cursor-pointer text-xs">
                   <Icon name="logout" className="w-3.5 h-3.5 mr-2" /> Sign out
                 </DropdownMenuItem>
               </DropdownMenuContent>

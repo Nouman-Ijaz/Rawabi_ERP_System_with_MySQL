@@ -3,8 +3,7 @@ import { usersApi } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 
-const fmtDate  = (d: string) => d ? new Date(d).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}) : 'Never';
-const fmtDT    = (d: string) => d ? new Date(d).toLocaleString('en-GB',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}) : 'Never';
+import { fmtDate, fmtDateTime } from '@/lib/format';
 const initials = (f: string, l: string) => `${f?.[0]||''}${l?.[0]||''}`.toUpperCase();
 
 const ROLES = ['super_admin','admin','office_admin','dispatcher','accountant','driver'];
@@ -267,7 +266,7 @@ export default function Users(){
                       </td>
                       <td className="py-3 px-4 text-slate-400">{u.department||'—'}</td>
                       <td className="py-3 px-4 text-slate-400">{u.phone||'—'}</td>
-                      <td className="py-3 px-4 text-slate-500 whitespace-nowrap text-[11px]">{fmtDT(u.last_login)}</td>
+                      <td className="py-3 px-4 text-slate-500 whitespace-nowrap text-[11px]">{fmtDateTime(u.last_login, 'Never')}</td>
                       <td className="py-3 px-4">
                         <button onClick={()=>!isMe&&setToggleTarget(u)} disabled={isMe}
                           className={`px-2 py-0.5 rounded-full text-[10px] font-medium transition-colors ${

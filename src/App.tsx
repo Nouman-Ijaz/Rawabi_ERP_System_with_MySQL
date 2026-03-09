@@ -79,8 +79,9 @@ function App() {
             <Route path="/dashboard" element={<Dashboard />} />
             
             {/* Fleet Management */}
-            <Route path="/vehicles" element={<Fleet />} />
-            <Route path="/drivers" element={<Fleet />} />
+            <Route path="/fleet" element={<Navigate to="/fleet/vehicles" replace />} />
+            <Route path="/fleet/vehicles" element={<Fleet />} />
+            <Route path="/fleet/drivers"  element={<Fleet />} />
             
             {/* Employee Management */}
             <Route path="/employees" element={<Employees />} />

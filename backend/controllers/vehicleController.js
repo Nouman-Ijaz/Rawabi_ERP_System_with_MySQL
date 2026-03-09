@@ -1,3 +1,4 @@
+import { asyncHandler } from '../middleware/asyncHandler.js';
 import { query, get, run } from '../database/db.js';
 import { getPublicUrl } from '../config/multer.js';
 
@@ -7,8 +8,7 @@ function generateVehicleCode() {
 }
 
 // Get all vehicles with optional filters
-export async function getAllVehicles(req, res) {
-    try {
+export const getAllVehicles = asyncHandler(async (req, res) => {
         const { status, type, search, fuelType, driverAssignment, expiryAlert, sort = 'created_at', page = 1, limit = 50 } = req.query;
         
         let sql = `
@@ -110,15 +110,10 @@ export async function getAllVehicles(req, res) {
                 totalPages: Math.ceil(countResult.total / parseInt(limit))
             }
         });
-    } catch (error) {
-        console.error('Get vehicles error:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
-}
+});
 
 // Get vehicle by ID
-export async function getVehicleById(req, res) {
-    try {
+export const getVehicleById = asyncHandler(async (req, res) => {
         const { id } = req.params;
         
         const vehicle = await get(
@@ -175,15 +170,10 @@ export async function getVehicleById(req, res) {
             fuelRecords,
             assignments
         });
-    } catch (error) {
-        console.error('Get vehicle error:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
-}
+});
 
 // Create vehicle
-export async function createVehicle(req, res) {
-    try {
+export const createVehicle = asyncHandler(async (req, res) => {
         const {
             plateNumber, vehicleType, brand, model, year, capacityKg, capacityCbm,
             fuelType, trailerType, purchaseDate, purchasePrice, registrationExpiry,
@@ -220,15 +210,10 @@ export async function createVehicle(req, res) {
             vehicleCode,
             message: 'Vehicle created successfully'
         });
-    } catch (error) {
-        console.error('Create vehicle error:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
-}
+});
 
 // Update vehicle
-export async function updateVehicle(req, res) {
-    try {
+export const updateVehicle = asyncHandler(async (req, res) => {
         const { id } = req.params;
         const updates = req.body;
 
@@ -270,15 +255,10 @@ export async function updateVehicle(req, res) {
         );
 
         res.json({ message: 'Vehicle updated successfully' });
-    } catch (error) {
-        console.error('Update vehicle error:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
-}
+});
 
 // Delete vehicle
-export async function deleteVehicle(req, res) {
-    try {
+export const deleteVehicle = asyncHandler(async (req, res) => {
         const { id } = req.params;
 
         const vehicle = await get('SELECT * FROM vehicles WHERE id = ?', [id]);
@@ -304,15 +284,10 @@ export async function deleteVehicle(req, res) {
         );
 
         res.json({ message: 'Vehicle deleted successfully' });
-    } catch (error) {
-        console.error('Delete vehicle error:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
-}
+});
 
 // Assign driver to vehicle
-export async function assignDriver(req, res) {
-    try {
+export const assignDriver = asyncHandler(async (req, res) => {
         const { id } = req.params;
         const { driverId, isPrimary = true, notes } = req.body;
 
@@ -340,15 +315,10 @@ export async function assignDriver(req, res) {
         );
 
         res.json({ message: 'Driver assigned successfully' });
-    } catch (error) {
-        console.error('Assign driver error:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
-}
+});
 
 // Unassign driver
-export async function unassignDriver(req, res) {
-    try {
+export const unassignDriver = asyncHandler(async (req, res) => {
         const { id } = req.params;
         const { driverId } = req.body;
 
@@ -367,15 +337,10 @@ export async function unassignDriver(req, res) {
         );
 
         res.json({ message: 'Driver unassigned successfully' });
-    } catch (error) {
-        console.error('Unassign driver error:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
-}
+});
 
 // Add fuel record
-export async function addFuelRecord(req, res) {
-    try {
+export const addFuelRecord = asyncHandler(async (req, res) => {
         const { id } = req.params;
         const { driverId, fuelDate, fuelStation, fuelType, quantityLiters, pricePerLiter, totalCost, odometerReading, receiptNumber, notes } = req.body;
 
@@ -395,15 +360,10 @@ export async function addFuelRecord(req, res) {
         }
 
         res.status(201).json({ message: 'Fuel record added successfully' });
-    } catch (error) {
-        console.error('Add fuel record error:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
-}
+});
 
 // Get vehicle types summary
-export async function getVehicleSummary(req, res) {
-    try {
+export const getVehicleSummary = asyncHandler(async (req, res) => {
         const byType = await query('SELECT vehicle_type, COUNT(*) as count FROM vehicles GROUP BY vehicle_type');
         const byStatus = await query('SELECT status, COUNT(*) as count FROM vehicles GROUP BY status');
         const byTrailerType = await query('SELECT trailer_type, COUNT(*) as count FROM vehicles WHERE trailer_type IS NOT NULL GROUP BY trailer_type');
@@ -413,8 +373,4 @@ export async function getVehicleSummary(req, res) {
             byStatus,
             byTrailerType
         });
-    } catch (error) {
-        console.error('Get vehicle summary error:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
-}
+});

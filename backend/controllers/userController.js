@@ -1,11 +1,11 @@
+import { asyncHandler } from '../middleware/asyncHandler.js';
 import bcrypt from 'bcryptjs';
 import { query, get, run } from '../database/db.js';
 
 const n = (v) => (v !== undefined && v !== '' && v !== null) ? v : null;
 
 // ── GET ALL ────────────────────────────────────────────────────────────
-export async function getAllUsers(req, res) {
-    try {
+export const getAllUsers = asyncHandler(async (req, res) => {
         const { role, search, status, page = 1, limit = 50 } = req.query;
 
         let sql = `
@@ -52,15 +52,10 @@ export async function getAllUsers(req, res) {
                 totalPages: Math.ceil(countResult.total / parseInt(limit))
             }
         });
-    } catch (error) {
-        console.error('Get users error:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
-}
+});
 
 // ── STATS — role counts unaffected by filters ──────────────────────────
-export async function getUserStats(req, res) {
-    try {
+export const getUserStats = asyncHandler(async (req, res) => {
         const roleCounts = await query(
             `SELECT role, COUNT(*) AS total, SUM(is_active) AS active_count
              FROM users GROUP BY role ORDER BY total DESC`
@@ -68,15 +63,10 @@ export async function getUserStats(req, res) {
         const total  = await get('SELECT COUNT(*) AS c FROM users');
         const active = await get('SELECT COUNT(*) AS c FROM users WHERE is_active = 1');
         res.json({ roleCounts, total: total.c, active_count: active.c });
-    } catch (error) {
-        console.error('Get user stats error:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
-}
+});
 
 // ── GET BY ID ──────────────────────────────────────────────────────────
-export async function getUserById(req, res) {
-    try {
+export const getUserById = asyncHandler(async (req, res) => {
         const { id } = req.params;
         const user = await get(
             `SELECT u.*, e.employee_code, e.position, e.hire_date, e.salary, e.department AS emp_department
@@ -85,15 +75,10 @@ export async function getUserById(req, res) {
         if (!user) return res.status(404).json({ error: 'User not found' });
         delete user.password;
         res.json(user);
-    } catch (error) {
-        console.error('Get user error:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
-}
+});
 
 // ── CREATE ─────────────────────────────────────────────────────────────
-export async function createUser(req, res) {
-    try {
+export const createUser = asyncHandler(async (req, res) => {
         const { email, password, firstName, lastName, role, department, phone } = req.body;
 
         if (!email || !password || !firstName || !lastName || !role) {
@@ -120,15 +105,10 @@ export async function createUser(req, res) {
              JSON.stringify({ email, firstName, lastName, role })]
         );
         res.status(201).json({ id: result.id, message: 'User created successfully' });
-    } catch (error) {
-        console.error('Create user error:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
-}
+});
 
 // ── UPDATE ─────────────────────────────────────────────────────────────
-export async function updateUser(req, res) {
-    try {
+export const updateUser = asyncHandler(async (req, res) => {
         const { id } = req.params;
         const { firstName, lastName, role, department, phone, isActive } = req.body;
 
@@ -156,15 +136,10 @@ export async function updateUser(req, res) {
              JSON.stringify(user), JSON.stringify({ firstName, lastName, role, isActive })]
         );
         res.json({ message: 'User updated successfully' });
-    } catch (error) {
-        console.error('Update user error:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
-}
+});
 
 // ── DELETE ─────────────────────────────────────────────────────────────
-export async function deleteUser(req, res) {
-    try {
+export const deleteUser = asyncHandler(async (req, res) => {
         const { id } = req.params;
         const user = await get('SELECT * FROM users WHERE id = ?', [id]);
         if (!user) return res.status(404).json({ error: 'User not found' });
@@ -175,15 +150,10 @@ export async function deleteUser(req, res) {
             [req.user.id, 'DELETE_USER', 'user', id, JSON.stringify(user)]
         );
         res.json({ message: 'User deleted successfully' });
-    } catch (error) {
-        console.error('Delete user error:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
-}
+});
 
 // ── RESET PASSWORD ─────────────────────────────────────────────────────
-export async function resetPassword(req, res) {
-    try {
+export const resetPassword = asyncHandler(async (req, res) => {
         const { id } = req.params;
         const { newPassword } = req.body;
 
@@ -204,15 +174,10 @@ export async function resetPassword(req, res) {
             [req.user.id, 'RESET_PASSWORD', 'user', id]
         );
         res.json({ message: 'Password reset successfully' });
-    } catch (error) {
-        console.error('Reset password error:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
-}
+});
 
 // ── CHANGE OWN PASSWORD (any authenticated user) ───────────────────────
-export async function changeOwnPassword(req, res) {
-    try {
+export const changeOwnPassword = asyncHandler(async (req, res) => {
         const { currentPassword, newPassword } = req.body;
         const userId = req.user.id;
 
@@ -245,8 +210,4 @@ export async function changeOwnPassword(req, res) {
             [userId, 'CHANGE_OWN_PASSWORD', 'user', userId]
         );
         res.json({ message: 'Password changed successfully' });
-    } catch (error) {
-        console.error('Change own password error:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
-}
+});

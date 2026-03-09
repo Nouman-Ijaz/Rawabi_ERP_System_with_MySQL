@@ -4,26 +4,13 @@ import { financeApi } from '@/lib/api';
 import { toast } from 'sonner';
 
 // ── helpers ──────────────────────────────────────────────────────
-const fmtSAR = (n: number | string) =>
-  new Intl.NumberFormat('en-US', { style: 'currency', currency: 'SAR', minimumFractionDigits: 2 }).format(Number(n) || 0);
-
-const fmtDate = (d: string) =>
-  d ? new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
-
-const today = () => new Date().toISOString().split('T')[0];
+import { fmtSAR, fmtDate, today } from '@/lib/format';
 const addDays = (d: string, n: number) => {
   const dt = new Date(d); dt.setDate(dt.getDate() + n);
   return dt.toISOString().split('T')[0];
 };
 
-const STATUS_STYLE: Record<string, { bg: string; text: string; dot: string }> = {
-  draft:     { bg: 'bg-slate-500/15', text: 'text-slate-400',   dot: 'bg-slate-500' },
-  sent:      { bg: 'bg-blue-500/15',  text: 'text-blue-400',    dot: 'bg-blue-500' },
-  paid:      { bg: 'bg-emerald-500/15', text: 'text-emerald-400', dot: 'bg-emerald-500' },
-  partial:   { bg: 'bg-amber-500/15', text: 'text-amber-400',   dot: 'bg-amber-500' },
-  overdue:   { bg: 'bg-red-500/15',   text: 'text-red-400',     dot: 'bg-red-500' },
-  cancelled: { bg: 'bg-slate-500/10', text: 'text-slate-500',   dot: 'bg-slate-600' },
-};
+import { INVOICE_STATUS } from '@/lib/statusStyles';
 
 // ── sub-components ────────────────────────────────────────────────
 function DIn({ label, ...props }: any) {
@@ -368,7 +355,7 @@ export default function Invoices() {
               ) : filtered.length === 0 ? (
                 <tr><td colSpan={10} className="px-4 py-12 text-center text-slate-500">No invoices found</td></tr>
               ) : filtered.map(inv => {
-                const st = STATUS_STYLE[inv.status] || STATUS_STYLE.draft;
+                const st = INVOICE_STATUS[inv.status] || STATUS_STYLE.draft;
                 return (
                   <tr key={inv.id} onClick={() => openDetail(inv)}
                     className={`border-b border-white/5 hover:bg-white/5 cursor-pointer transition-all duration-500 ${
@@ -573,7 +560,7 @@ export default function Invoices() {
                   { label: 'Total', value: fmtSAR(selected.total_amount), color: 'text-white' },
                   { label: 'Paid', value: fmtSAR(selected.paid_amount), color: 'text-emerald-400' },
                   { label: 'Balance', value: fmtSAR(selected.balance_due), color: Number(selected.balance_due) > 0 ? 'text-red-400' : 'text-emerald-400' },
-                  { label: 'Status', value: selected.status, color: STATUS_STYLE[selected.status]?.text || 'text-slate-400' },
+                  { label: 'Status', value: selected.status, color: INVOICE_STATUS[selected.status]?.text || 'text-slate-400' },
                 ].map(c => (
                   <div key={c.label} className="bg-[#0f1117] rounded-lg p-3 border border-white/5">
                     <p className="text-[11px] text-slate-500">{c.label}</p>

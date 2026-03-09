@@ -1,3 +1,4 @@
+import { asyncHandler } from '../middleware/asyncHandler.js';
 import { query, get, run } from '../database/db.js';
 
 function generateInvoiceNumber() {
@@ -16,8 +17,7 @@ function generateExpenseNumber() {
 // ============================================
 // INVOICES
 // ============================================
-export async function getAllInvoices(req, res) {
-    try {
+export const getAllInvoices = asyncHandler(async (req, res) => {
         const { status, customer, from, to, search } = req.query;
         let sql = `
             SELECT i.*, c.company_name as customer_name, s.shipment_number
@@ -41,14 +41,9 @@ export async function getAllInvoices(req, res) {
 
         const invoices = await query(sql, params);
         res.json(invoices);
-    } catch (error) {
-        console.error('Get invoices error:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
-}
+});
 
-export async function getInvoiceById(req, res) {
-    try {
+export const getInvoiceById = asyncHandler(async (req, res) => {
         const { id } = req.params;
 
         const invoice = await get(
@@ -75,14 +70,9 @@ export async function getInvoiceById(req, res) {
         );
 
         res.json({ ...invoice, items, payments });
-    } catch (error) {
-        console.error('Get invoice error:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
-}
+});
 
-export async function createInvoice(req, res) {
-    try {
+export const createInvoice = asyncHandler(async (req, res) => {
         const { customerId, shipmentId, invoiceDate, dueDate, items, notes, paymentTerms } = req.body;
 
         let subtotal = 0;
@@ -116,29 +106,19 @@ export async function createInvoice(req, res) {
         );
 
         res.status(201).json({ id: result.id, invoiceNumber, message: 'Invoice created successfully' });
-    } catch (error) {
-        console.error('Create invoice error:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
-}
+});
 
-export async function updateInvoiceStatus(req, res) {
-    try {
+export const updateInvoiceStatus = asyncHandler(async (req, res) => {
         const { id }     = req.params;
         const { status } = req.body;
         await run('UPDATE invoices SET status = ? WHERE id = ?', [status, id]);
         res.json({ message: 'Invoice status updated successfully' });
-    } catch (error) {
-        console.error('Update invoice status error:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
-}
+});
 
 // ============================================
 // PAYMENTS
 // ============================================
-export async function getAllPayments(req, res) {
-    try {
+export const getAllPayments = asyncHandler(async (req, res) => {
         const { customer, from, to } = req.query;
         let sql = `
             SELECT p.*, c.company_name as customer_name, i.invoice_number
@@ -156,14 +136,9 @@ export async function getAllPayments(req, res) {
         sql += ' ORDER BY p.created_at DESC';
         const payments = await query(sql, params);
         res.json(payments);
-    } catch (error) {
-        console.error('Get payments error:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
-}
+});
 
-export async function createPayment(req, res) {
-    try {
+export const createPayment = asyncHandler(async (req, res) => {
         const { invoiceId, customerId, paymentDate, amount, paymentMethod, referenceNumber, bankName, notes } = req.body;
         const paymentNumber = generatePaymentNumber();
 
@@ -196,17 +171,12 @@ export async function createPayment(req, res) {
         );
 
         res.status(201).json({ id: result.id, paymentNumber, message: 'Payment recorded successfully' });
-    } catch (error) {
-        console.error('Create payment error:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
-}
+});
 
 // ============================================
 // EXPENSES
 // ============================================
-export async function getAllExpenses(req, res) {
-    try {
+export const getAllExpenses = asyncHandler(async (req, res) => {
         const { status, category, vehicle, driver, from, to } = req.query;
         let sql = `
             SELECT e.*,
@@ -232,14 +202,9 @@ export async function getAllExpenses(req, res) {
         sql += ' ORDER BY e.created_at DESC';
         const expenses = await query(sql, params);
         res.json(expenses);
-    } catch (error) {
-        console.error('Get expenses error:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
-}
+});
 
-export async function createExpense(req, res) {
-    try {
+export const createExpense = asyncHandler(async (req, res) => {
         const { expenseDate, category, description, amount, vehicleId, driverId, shipmentId, vendorName, receiptNumber, paymentMethod } = req.body;
         const expenseNumber = generateExpenseNumber();
 
@@ -261,29 +226,19 @@ export async function createExpense(req, res) {
         );
 
         res.status(201).json({ id: result.id, expenseNumber, message: 'Expense created successfully' });
-    } catch (error) {
-        console.error('Create expense error:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
-}
+});
 
-export async function approveExpense(req, res) {
-    try {
+export const approveExpense = asyncHandler(async (req, res) => {
         const { id }     = req.params;
         const { status } = req.body;
         await run('UPDATE expenses SET status = ?, approved_by = ? WHERE id = ?', [status, req.user.id, id]);
         res.json({ message: 'Expense status updated successfully' });
-    } catch (error) {
-        console.error('Approve expense error:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
-}
+});
 
 // ============================================
 // FINANCIAL SUMMARY
 // ============================================
-export async function getFinancialSummary(req, res) {
-    try {
+export const getFinancialSummary = asyncHandler(async (req, res) => {
         const { period = 'month' } = req.query;
 
         // invFilter is kept for future period-scoped sections.
@@ -356,17 +311,12 @@ export async function getFinancialSummary(req, res) {
         ]);
 
         res.json({ revenue, expensesByCategory, outstandingInvoices, agedReceivables, monthlyData });
-    } catch (error) {
-        console.error('Get financial summary error:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
-}
+});
 
 // ============================================
 // DELIVERABLE SHIPMENTS (for invoice creation)
 // ============================================
-export async function getDeliverableShipments(req, res) {
-    try {
+export const getDeliverableShipments = asyncHandler(async (req, res) => {
         const shipments = await query(
             `SELECT s.id, s.shipment_number, s.final_amount, s.quoted_amount,
                     s.origin_city, s.destination_city, s.cargo_type,
@@ -379,45 +329,30 @@ export async function getDeliverableShipments(req, res) {
              ORDER BY s.actual_delivery_date DESC`
         );
         res.json(shipments);
-    } catch (error) {
-        console.error('Get deliverable shipments error:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
-}
+});
 
 // ============================================
 // COMPANY SETTINGS (for PDF invoice header)
 // ============================================
-export async function getCompanySettings(req, res) {
-    try {
+export const getCompanySettings = asyncHandler(async (req, res) => {
         const rows = await query(
             "SELECT setting_key, setting_value FROM settings WHERE setting_group IN ('company','finance')"
         );
         const settings = {};
         rows.forEach(r => { settings[r.setting_key] = r.setting_value; });
         res.json(settings);
-    } catch (error) {
-        console.error('Get company settings error:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
-}
+});
 
-export async function getAllSettings(req, res) {
-    try {
+export const getAllSettings = asyncHandler(async (req, res) => {
         const rows = await query(
             "SELECT setting_key, setting_value, setting_group, description FROM settings ORDER BY setting_group, setting_key"
         );
         const settings = {};
         rows.forEach(r => { settings[r.setting_key] = r.setting_value; });
         res.json(settings);
-    } catch (error) {
-        console.error('Get all settings error:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
-}
+});
 
-export async function updateSettings(req, res) {
-    try {
+export const updateSettings = asyncHandler(async (req, res) => {
         const updates = req.body; // { setting_key: value, ... }
         if (!updates || typeof updates !== 'object') {
             return res.status(400).json({ error: 'Invalid settings payload' });
@@ -434,8 +369,4 @@ export async function updateSettings(req, res) {
             [req.user.id, 'UPDATE_SETTINGS', 'settings', JSON.stringify(updates)]
         );
         res.json({ message: 'Settings updated successfully' });
-    } catch (error) {
-        console.error('Update settings error:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
-}
+});

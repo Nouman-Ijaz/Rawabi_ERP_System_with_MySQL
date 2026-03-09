@@ -2,18 +2,14 @@ import { useEffect, useState, useCallback } from 'react';
 import { payrollApi, employeesApi } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
+import { ROLES } from '@/lib/roles';
+import { fmtSAR } from '@/lib/format';
 
 // ── Helpers ──────────────────────────────────────────────────────────
-const fmtSAR  = (n: any) => n != null ? `SAR ${Number(n).toLocaleString('en-SA',{minimumFractionDigits:2,maximumFractionDigits:2})}` : 'SAR 0.00';
 const MONTHS  = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 const fmtPeriod = (m: number, y: number) => `${MONTHS[m-1]} ${y}`;
 
-const STATUS_STYLE: Record<string,string> = {
-  draft:    'bg-slate-500/15 text-slate-400 border-slate-500/30',
-  approved: 'bg-amber-500/15 text-amber-400 border-amber-500/30',
-  paid:     'bg-emerald-500/15 text-emerald-400 border-emerald-500/30',
-  cancelled:'bg-red-500/15 text-red-400 border-red-500/30',
-};
+import { PAYROLL_STATUS } from '@/lib/statusStyles';
 
 const inp  = 'w-full px-3 py-2 text-xs bg-[#0c0e13] border border-white/10 rounded-lg text-white placeholder-slate-600 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/20 transition-colors';
 const sel  = inp + ' appearance-none cursor-pointer';
@@ -123,6 +119,194 @@ ${slips.map(s => buildSlipHtml(s)).join('')}
 </body></html>`;
 }
 
+// ── jsPDF loader (from CDN, cached after first load) ─────────────────
+async function loadJsPDF(): Promise<any> {
+  if ((window as any).jspdf?.jsPDF) return (window as any).jspdf.jsPDF;
+  const load = (src: string) => new Promise<void>((res, rej) => {
+    const s = document.createElement('script');
+    s.src = src; s.onload = () => res(); s.onerror = () => rej(new Error('Failed: ' + src));
+    document.head.appendChild(s);
+  });
+  await load('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+  await load('https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.3/jspdf.plugin.autotable.min.js');
+  return (window as any).jspdf.jsPDF;
+}
+
+// ── Generate real PDF for pay slips ──────────────────────────────────
+async function generateSlipPDF(slipsArr: any[], periodData?: any) {
+  const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const fS = (n: any) => `SAR ${Number(n || 0).toLocaleString('en-SA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+  const merged = slipsArr.map(s => ({ ...s, ...(periodData ? {
+    period_month: periodData.period_month,
+    period_year:  periodData.period_year,
+    payment_date: periodData.payment_date,
+  } : {}) }));
+
+  let JsPDF: any;
+  try { JsPDF = await loadJsPDF(); }
+  catch { triggerPrintPopup(merged); return; } // offline fallback
+
+  const doc = new JsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  const W = doc.internal.pageSize.getWidth();
+
+  merged.forEach((slip, idx) => {
+    if (idx > 0) doc.addPage();
+    const period = slip.period_month && slip.period_year
+      ? `${MONTHS[slip.period_month - 1]} ${slip.period_year}` : '';
+    const payDate = slip.payment_date
+      ? new Date(slip.payment_date).toLocaleDateString('en-GB') : '';
+
+    let y = 12;
+
+    // Header bar
+    doc.setFillColor(30, 58, 95);
+    doc.rect(10, y, W - 20, 18, 'F');
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(13); doc.setTextColor(255, 255, 255);
+    doc.text('Rawabi Logistics', 15, y + 8);
+    doc.setFontSize(11);
+    doc.text('SALARY SLIP', W - 15, y + 7, { align: 'right' });
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(8);
+    doc.text('Payroll Department', 15, y + 14);
+    if (period) doc.text(period, W - 15, y + 12, { align: 'right' });
+    if (payDate) doc.text(`Paid: ${payDate}`, W - 15, y + 16.5, { align: 'right' });
+    y += 23;
+
+    // Employee info grid
+    (doc as any).autoTable({
+      startY: y, margin: { left: 10, right: 10 },
+      styles: { fontSize: 8, cellPadding: 2.5 },
+      columnStyles: {
+        0: { cellWidth: 38, textColor: [100, 100, 100] },
+        1: { fontStyle: 'bold' },
+        2: { cellWidth: 38, textColor: [100, 100, 100] },
+        3: { fontStyle: 'bold' },
+      },
+      body: [
+        ['Employee Name', `${slip.first_name||''} ${slip.last_name||''}`, 'Nationality', slip.nationality||'—'],
+        ['Employee Code', slip.employee_code||'—',                        'Bank',         slip.bank_name||'—'],
+        ['Department',    slip.department||'—',                           'IBAN',         slip.bank_iban ? `****${slip.bank_iban.slice(-6)}` : '—'],
+        ['Position',      slip.position||'—',                             'Payment',      (slip.payment_method||'bank_transfer').replace(/_/g,' ')],
+      ],
+      theme: 'plain',
+    });
+    y = (doc as any).lastAutoTable.finalY + 3;
+
+    // Attendance bar
+    (doc as any).autoTable({
+      startY: y, margin: { left: 10, right: 10 },
+      styles: { fontSize: 8, halign: 'center', cellPadding: 3 },
+      headStyles: { fillColor: [248, 250, 252], textColor: [30, 58, 95], fontStyle: 'bold', fontSize: 8 },
+      head: [['Working Days', 'Days Present', 'Days Absent']],
+      body: [[
+        slip.working_days || 30,
+        slip.days_present || ((slip.working_days||30) - (slip.days_absent||0)),
+        slip.days_absent || 0,
+      ]],
+    });
+    y = (doc as any).lastAutoTable.finalY + 3;
+
+    // Earnings items
+    const earnRows = [
+      ['Basic Salary',       slip.basic_salary],
+      ['Housing Allowance',  slip.housing_allowance],
+      ['Transport Allowance',slip.transport_allowance],
+      ['Food Allowance',     slip.food_allowance],
+      ['Phone Allowance',    slip.phone_allowance],
+      ['Other Allowance',    slip.other_allowance],
+      ['Overtime',           slip.overtime_amount],
+      ['Bonus',              slip.bonus_amount],
+    ].filter(([, v]) => parseFloat(v as string) > 0);
+
+    const dedRows = [
+      ['GOSI (Employee 9.75%)', slip.gosi_employee],
+      ['Loan Repayment',        slip.loan_deduction],
+      ['Absence Deduction',     slip.absence_deduction],
+      ['Other Deduction',       slip.other_deduction],
+    ].filter(([, v]) => parseFloat(v as string) > 0);
+
+    const halfW = (W - 25) / 2;
+
+    // Earnings table (left)
+    (doc as any).autoTable({
+      startY: y, margin: { left: 10, right: W / 2 + 2 }, tableWidth: halfW,
+      styles: { fontSize: 8, cellPadding: 2 },
+      headStyles: { fillColor: [30, 58, 95], textColor: [255, 255, 255], fontStyle: 'bold' },
+      columnStyles: { 1: { halign: 'right' } },
+      head: [['EARNINGS', '']],
+      body: [
+        ...earnRows.map(([l, v]) => [l, fS(v)]),
+        [
+          { content: 'GROSS TOTAL', styles: { fontStyle: 'bold', fillColor: [239, 246, 255], textColor: [30, 58, 95] } },
+          { content: fS(slip.gross_salary), styles: { fontStyle: 'bold', fillColor: [239, 246, 255], textColor: [30, 58, 95], halign: 'right' } },
+        ],
+      ],
+    });
+    const earnEndY = (doc as any).lastAutoTable.finalY;
+
+    // Deductions table (right)
+    (doc as any).autoTable({
+      startY: y, margin: { left: W / 2 + 2, right: 10 }, tableWidth: halfW,
+      styles: { fontSize: 8, cellPadding: 2 },
+      headStyles: { fillColor: [127, 29, 29], textColor: [255, 255, 255], fontStyle: 'bold' },
+      columnStyles: { 1: { halign: 'right' } },
+      head: [['DEDUCTIONS', '']],
+      body: [
+        ...(dedRows.length ? dedRows.map(([l, v]) => [l, fS(v)]) : [['No deductions', '']]),
+        [
+          { content: 'TOTAL DEDUCTIONS', styles: { fontStyle: 'bold', fillColor: [254, 242, 242], textColor: [127, 29, 29] } },
+          { content: fS(slip.total_deductions), styles: { fontStyle: 'bold', fillColor: [254, 242, 242], textColor: [127, 29, 29], halign: 'right' } },
+        ],
+      ],
+    });
+    y = Math.max(earnEndY, (doc as any).lastAutoTable.finalY) + 4;
+
+    // Net pay box
+    doc.setFillColor(15, 23, 42);
+    doc.roundedRect(10, y, W - 20, 18, 2, 2, 'F');
+    doc.setTextColor(148, 163, 184); doc.setFontSize(7.5); doc.setFont('helvetica', 'normal');
+    doc.text('NET SALARY PAYABLE', 15, y + 6.5);
+    doc.setTextColor(52, 211, 153); doc.setFontSize(13); doc.setFont('helvetica', 'bold');
+    doc.text(fS(slip.net_salary), 15, y + 14.5);
+    doc.setTextColor(148, 163, 184); doc.setFontSize(7.5); doc.setFont('helvetica', 'normal');
+    doc.text('EMPLOYER GOSI (not deducted)', W - 15, y + 6.5, { align: 'right' });
+    doc.setTextColor(96, 165, 250); doc.setFontSize(10);
+    doc.text(fS(slip.gosi_employer), W - 15, y + 14.5, { align: 'right' });
+    y += 23;
+
+    // Notes (if any)
+    if (slip.notes) {
+      doc.setFillColor(240, 249, 255); doc.setDrawColor(186, 230, 253);
+      doc.roundedRect(10, y, W - 20, 8, 1, 1, 'FD');
+      doc.setTextColor(30, 64, 175); doc.setFontSize(7.5); doc.setFont('helvetica', 'bold');
+      doc.text('Note:', 14, y + 5);
+      doc.setFont('helvetica', 'normal'); doc.setTextColor(0, 0, 0);
+      doc.text(slip.notes, 25, y + 5);
+      y += 12;
+    }
+
+    // Signature lines
+    doc.setDrawColor(180, 180, 180); doc.setTextColor(150, 150, 150); doc.setFontSize(8);
+    const sigW = (W - 20) / 3;
+    ['Employee Signature', 'HR / Payroll', 'Management'].forEach((label, i) => {
+      const x = 10 + i * sigW;
+      doc.line(x + 5, y + 12, x + sigW - 5, y + 12);
+      doc.setFont('helvetica', 'normal');
+      doc.text(label, x + sigW / 2, y + 17, { align: 'center' });
+    });
+    y += 22;
+
+    // Footer
+    doc.setTextColor(180, 180, 180); doc.setFontSize(7);
+    doc.text('Computer-generated salary slip · Rawabi Logistics · Confidential', W / 2, y, { align: 'center' });
+  });
+
+  const fname = merged.length === 1
+    ? `Salary_Slip_${merged[0].first_name}_${merged[0].last_name}_${merged[0].period_month ? MONTHS[merged[0].period_month - 1] : ''}${merged[0].period_year || ''}.pdf`
+    : `Salary_Slips_All_${merged[0]?.period_month ? MONTHS[merged[0].period_month - 1] : ''}${merged[0]?.period_year || ''}.pdf`;
+  doc.save(fname);
+}
+
 // Opens print dialog in popup window
 function triggerPrintPopup(slipsArr: any[], periodData?: any) {
   const merged = slipsArr.map(s => ({ ...s, ...(periodData ? {
@@ -136,32 +320,14 @@ function triggerPrintPopup(slipsArr: any[], periodData?: any) {
   win.document.close();
 }
 
-// Downloads as HTML file (saves directly without print dialog)
-function downloadSlipFile(slipsArr: any[], periodData?: any) {
-  const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  const merged = slipsArr.map(s => ({ ...s, ...(periodData ? {
-    period_month: periodData.period_month,
-    period_year:  periodData.period_year,
-    payment_date: periodData.payment_date,
-  } : {}) }));
-  const html = slipWindowHtml(merged).replace('<script>window.onload = function(){ window.print(); }<\/script>', '');
-  const fname = merged.length === 1
-    ? `Salary_Slip_${merged[0].first_name}_${merged[0].last_name}_${merged[0].period_month?MONTHS[merged[0].period_month-1]:''}${merged[0].period_year||''}.html`
-    : `Salary_Slips_All_${merged[0]?.period_month?MONTHS[merged[0].period_month-1]:''}${merged[0]?.period_year||''}.html`;
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(new Blob([html], { type: 'text/html' }));
-  a.download = fname;
-  a.click();
-  URL.revokeObjectURL(a.href);
-}
 
 // ── Main ─────────────────────────────────────────────────────────────
 // ── Main ─────────────────────────────────────────────────────────────
 export default function Payroll() {
   const { hasPermission, user } = useAuth();
-  const isSA     = hasPermission(['super_admin']);
-  const canEdit  = hasPermission(['super_admin','admin']);
-  const isPayView= hasPermission(['super_admin','admin','accountant']);
+  const isSA     = hasPermission(ROLES.SUPER_ADMIN);
+  const canEdit  = hasPermission(ROLES.PAY_EDIT);
+  const isPayView= hasPermission(ROLES.PAY_VIEW);
 
   type View = 'periods' | 'period_detail' | 'loans' | 'salary_structure' | 'my_slips';
   const [view, setView]             = useState<View>(isPayView ? 'periods' : 'my_slips');
@@ -267,7 +433,7 @@ export default function Payroll() {
 
   // Delegate to module-level helpers
   const triggerPrint   = (s: any[], p?: any) => triggerPrintPopup(s, p);
-  const triggerDownload = (s: any[], p?: any) => downloadSlipFile(s, p);
+  const triggerDownload = (s: any[], p?: any) => { generateSlipPDF(s, p); };
 
   const openSlipEdit = (slip: any) => {
     setEditSlip(slip);
@@ -424,7 +590,7 @@ export default function Payroll() {
                     <td className="px-4 py-3 text-red-400 tabular-nums">{fmtSAR(p.total_deductions)}</td>
                     <td className="px-4 py-3 text-emerald-400 font-semibold tabular-nums">{fmtSAR(p.total_net)}</td>
                     <td className="px-4 py-3 text-slate-400">{p.payment_date?new Date(p.payment_date).toLocaleDateString('en-GB'):'—'}</td>
-                    <td className="px-4 py-3"><span className={`px-2 py-0.5 rounded-full text-[10px] font-medium border capitalize ${STATUS_STYLE[p.status]||''}`}>{p.status}</span></td>
+                    <td className="px-4 py-3"><span className={`px-2 py-0.5 rounded-full text-[10px] font-medium border capitalize ${PAYROLL_STATUS[p.status]||''}`}>{p.status}</span></td>
                     <td className="px-4 py-3 text-blue-400 text-[11px]">View →</td>
                   </tr>
                 ))}
@@ -449,7 +615,7 @@ export default function Payroll() {
                 <div className="flex items-start justify-between flex-wrap gap-4">
                   <div>
                     <h2 className="text-lg font-bold text-white">{fmtPeriod(activePeriod.period_month,activePeriod.period_year)}</h2>
-                    <span className={`mt-1 inline-block px-2 py-0.5 rounded-full text-[10px] font-medium border capitalize ${STATUS_STYLE[activePeriod.status]||''}`}>{activePeriod.status}</span>
+                    <span className={`mt-1 inline-block px-2 py-0.5 rounded-full text-[10px] font-medium border capitalize ${PAYROLL_STATUS[activePeriod.status]||''}`}>{activePeriod.status}</span>
                   </div>
                   <div className="flex items-center gap-2 flex-wrap">
                     {activePeriod.slips?.length > 0 && (
@@ -494,7 +660,7 @@ export default function Payroll() {
                   </div>
                   <div className="overflow-x-auto">
                     <table className="w-full text-xs">
-                      <thead><tr className="border-b border-white/5">{['Employee','Dept','Basic','Allowances','OT','Bonus','Gross','GOSI','Loan Ded.','Total Ded.','Net','Days','Status',''].map(h=><th key={h} className="px-3 py-3 text-left text-[11px] font-medium text-slate-500 whitespace-nowrap">{h}</th>)}</tr></thead>
+                      <thead><tr className="border-b border-white/5">{['Employee','Dept','Basic','Allowances','OT','Bonus','Gross','GOSI','Loan Ded.','Total Ded.','Net','Days','Status','Actions'].map(h=><th key={h} className="px-3 py-3 text-left text-[11px] font-medium text-slate-500 whitespace-nowrap">{h}</th>)}</tr></thead>
                       <tbody>
                         {activePeriod.slips.map((s: any) => {
                           const allowances = (parseFloat(s.housing_allowance)||0)+(parseFloat(s.transport_allowance)||0)+(parseFloat(s.food_allowance)||0)+(parseFloat(s.phone_allowance)||0)+(parseFloat(s.other_allowance)||0);
@@ -512,9 +678,9 @@ export default function Payroll() {
                               <td className="px-3 py-3 text-red-400 tabular-nums">{fmtSAR(s.total_deductions)}</td>
                               <td className="px-3 py-3 font-bold text-emerald-400 tabular-nums">{fmtSAR(s.net_salary)}</td>
                               <td className="px-3 py-3 text-slate-500 tabular-nums text-[10px]">{s.days_present||0}/{s.working_days||30}</td>
-                              <td className="px-3 py-3"><span className={`px-1.5 py-0.5 rounded-full text-[10px] font-medium border capitalize ${STATUS_STYLE[s.status]||''}`}>{s.status}</span></td>
+                              <td className="px-3 py-3"><span className={`px-1.5 py-0.5 rounded-full text-[10px] font-medium border capitalize ${PAYROLL_STATUS[s.status]||''}`}>{s.status}</span></td>
                               <td className="px-3 py-3">
-                                <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <div className="flex items-center gap-2">
                                   {/* Individual print */}
                                   <button onClick={() => triggerPrint([s], activePeriod)} title="Print slip"
                                     className="p-1.5 rounded hover:bg-white/10 text-slate-500 hover:text-white transition-colors">
@@ -583,7 +749,7 @@ export default function Payroll() {
                       <p className="text-sm font-semibold text-white">{fmtPeriod(s.period_month,s.period_year)}</p>
                       <p className="text-[11px] text-slate-500 mt-0.5">
                         {s.payment_date ? `Paid ${new Date(s.payment_date).toLocaleDateString('en-GB')}` : 'Not yet paid'}
-                        {' · '}<span className={`capitalize ${STATUS_STYLE[s.status]?.split(' ')[1]||'text-slate-400'}`}>{s.status}</span>
+                        {' · '}<span className={`capitalize ${PAYROLL_STATUS[s.status]?.split(' ')[1]||'text-slate-400'}`}>{s.status}</span>
                       </p>
                     </div>
                   </div>

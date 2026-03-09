@@ -1,8 +1,8 @@
+import { asyncHandler } from '../middleware/asyncHandler.js';
 import { query, get, run } from '../database/db.js';
 
 // Get all maintenance records
-async function getAllMaintenance(req, res) {
-    try {
+export const getAllMaintenance = asyncHandler(async (req, res) => {
         const { status, vehicle, type, from, to } = req.query;
         let sql = `
             SELECT m.*, 
@@ -44,15 +44,10 @@ async function getAllMaintenance(req, res) {
 
         const records = await query(sql, params);
         res.json(records);
-    } catch (error) {
-        console.error('Get maintenance records error:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
-}
+});
 
 // Get maintenance by ID
-async function getMaintenanceById(req, res) {
-    try {
+export const getMaintenanceById = asyncHandler(async (req, res) => {
         const { id } = req.params;
         
         const record = await get(
@@ -71,15 +66,10 @@ async function getMaintenanceById(req, res) {
         }
 
         res.json(record);
-    } catch (error) {
-        console.error('Get maintenance error:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
-}
+});
 
 // Create maintenance record
-async function createMaintenance(req, res) {
-    try {
+export const createMaintenance = asyncHandler(async (req, res) => {
         const {
             vehicleId, maintenanceType, serviceDate, description, serviceProvider,
             cost, partsReplaced, nextServiceDate, nextServiceKm, notes
@@ -112,15 +102,10 @@ async function createMaintenance(req, res) {
             id: result.id,
             message: 'Maintenance record created successfully'
         });
-    } catch (error) {
-        console.error('Create maintenance error:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
-}
+});
 
 // Update maintenance record
-async function updateMaintenance(req, res) {
-    try {
+export const updateMaintenance = asyncHandler(async (req, res) => {
         const { id } = req.params;
         const updates = req.body;
 
@@ -166,15 +151,10 @@ async function updateMaintenance(req, res) {
         );
 
         res.json({ message: 'Maintenance record updated successfully' });
-    } catch (error) {
-        console.error('Update maintenance error:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
-}
+});
 
 // Delete maintenance record
-async function deleteMaintenance(req, res) {
-    try {
+export const deleteMaintenance = asyncHandler(async (req, res) => {
         const { id } = req.params;
 
         const record = await get('SELECT * FROM maintenance_records WHERE id = ?', [id]);
@@ -191,15 +171,10 @@ async function deleteMaintenance(req, res) {
         );
 
         res.json({ message: 'Maintenance record deleted successfully' });
-    } catch (error) {
-        console.error('Delete maintenance error:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
-}
+});
 
 // Get upcoming maintenance
-async function getUpcomingMaintenance(req, res) {
-    try {
+export const getUpcomingMaintenance = asyncHandler(async (req, res) => {
         // Get vehicles due for maintenance
         const byDate = await query(
             `SELECT m.*, v.plate_number, v.vehicle_type, v.total_km
@@ -225,15 +200,10 @@ async function getUpcomingMaintenance(req, res) {
             byDate,
             byKm
         });
-    } catch (error) {
-        console.error('Get upcoming maintenance error:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
-}
+});
 
 // Get maintenance summary
-async function getMaintenanceSummary(req, res) {
-    try {
+export const getMaintenanceSummary = asyncHandler(async (req, res) => {
         const { period = 'month' } = req.query;
 
         let dateFilter = '';
@@ -280,18 +250,5 @@ async function getMaintenanceSummary(req, res) {
             byVehicle,
             monthlyTrend
         });
-    } catch (error) {
-        console.error('Get maintenance summary error:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
-}
+});
 
-export {
-    getAllMaintenance,
-    getMaintenanceById,
-    createMaintenance,
-    updateMaintenance,
-    deleteMaintenance,
-    getUpcomingMaintenance,
-    getMaintenanceSummary
-};

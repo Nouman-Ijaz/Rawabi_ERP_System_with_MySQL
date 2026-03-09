@@ -1,8 +1,9 @@
+import { asyncHandler } from '../middleware/asyncHandler.js';
 import { query, get, run } from '../database/db.js';
+import { GOSI, PAYROLL } from '../config/constants.js';
 
 // ── GET ALL PERIODS ──────────────────────────────────────────────────
-export async function getAllPeriods(req, res) {
-    try {
+export const getAllPeriods = asyncHandler(async (req, res) => {
         const { status, year } = req.query;
         let sql = `SELECT pp.*,
                           CONCAT(u.first_name,' ',u.last_name) AS created_by_name,
@@ -17,12 +18,10 @@ export async function getAllPeriods(req, res) {
         sql += ' ORDER BY pp.period_year DESC, pp.period_month DESC';
         const periods = await query(sql, params);
         res.json(periods);
-    } catch (e) { console.error(e); res.status(500).json({ error: 'Internal server error' }); }
-}
+});
 
 // ── CREATE PERIOD ────────────────────────────────────────────────────
-export async function createPeriod(req, res) {
-    try {
+export const createPeriod = asyncHandler(async (req, res) => {
         const { month, year, paymentDate, notes } = req.body;
         if (!month || !year) return res.status(400).json({ error: 'Month and year are required' });
         const m = parseInt(month), y = parseInt(year);
@@ -37,12 +36,10 @@ export async function createPeriod(req, res) {
         );
         const period = await get('SELECT * FROM payroll_periods WHERE id=?', [result.id]);
         res.status(201).json(period);
-    } catch (e) { console.error(e); res.status(500).json({ error: 'Internal server error' }); }
-}
+});
 
 // ── GET PERIOD BY ID + SLIPS ─────────────────────────────────────────
-export async function getPeriodById(req, res) {
-    try {
+export const getPeriodById = asyncHandler(async (req, res) => {
         const { id } = req.params;
         const period = await get(
             `SELECT pp.*,
@@ -65,12 +62,10 @@ export async function getPeriodById(req, res) {
              ORDER BY e.department, e.first_name`, [id]
         );
         res.json({ ...period, slips });
-    } catch (e) { console.error(e); res.status(500).json({ error: 'Internal server error' }); }
-}
+});
 
 // ── GENERATE SLIPS FOR ALL ACTIVE EMPLOYEES ──────────────────────────
-export async function generateSlips(req, res) {
-    try {
+export const generateSlips = asyncHandler(async (req, res) => {
         const { id } = req.params;
         const period = await get('SELECT * FROM payroll_periods WHERE id=?', [id]);
         if (!period) return res.status(404).json({ error: 'Period not found' });
@@ -109,8 +104,8 @@ export async function generateSlips(req, res) {
             const phone    = parseFloat(emp.phone_allowance || 0);
             const other    = parseFloat(emp.other_allowance || 0);
             const gross    = basic + housing + transport + food + phone + other;
-            const gosiEmpPct  = parseFloat(emp.gosi_employee_pct || 9.75);
-            const gosiEmprPct = parseFloat(emp.gosi_employer_pct || 11.75);
+            const gosiEmpPct  = parseFloat(emp.gosi_employee_pct || GOSI.EMPLOYEE_RATE * 100);
+            const gosiEmprPct = parseFloat(emp.gosi_employer_pct || GOSI.EMPLOYER_RATE * 100);
 
             // GOSI applies to basic + housing only (Saudi Labor Law)
             const gosiBase   = basic + housing;
@@ -142,12 +137,10 @@ export async function generateSlips(req, res) {
         // Update period totals
         await updatePeriodTotals(id);
         res.json({ message: `Generated ${created} slips (${skipped} already existed)`, created, skipped });
-    } catch (e) { console.error(e); res.status(500).json({ error: 'Internal server error' }); }
-}
+});
 
 // ── UPDATE SINGLE SLIP ───────────────────────────────────────────────
-export async function updateSlip(req, res) {
-    try {
+export const updateSlip = asyncHandler(async (req, res) => {
         const { id } = req.params; // slip id
         const slip = await get('SELECT * FROM payroll_slips WHERE id=?', [id]);
         if (!slip) return res.status(404).json({ error: 'Slip not found' });
@@ -200,12 +193,10 @@ export async function updateSlip(req, res) {
             SELECT ps.*, e.first_name, e.last_name, e.employee_code, e.department
             FROM payroll_slips ps JOIN employees e ON e.id=ps.employee_id WHERE ps.id=?`, [id]);
         res.json(updated);
-    } catch (e) { console.error(e); res.status(500).json({ error: 'Internal server error' }); }
-}
+});
 
 // ── APPROVE PERIOD ───────────────────────────────────────────────────
-export async function approvePeriod(req, res) {
-    try {
+export const approvePeriod = asyncHandler(async (req, res) => {
         const { id } = req.params;
         const period = await get('SELECT * FROM payroll_periods WHERE id=?', [id]);
         if (!period) return res.status(404).json({ error: 'Period not found' });
@@ -217,12 +208,10 @@ export async function approvePeriod(req, res) {
         await run('UPDATE payroll_slips SET status=? WHERE payroll_period_id=? AND status=?', ['approved', id, 'draft']);
         await run('INSERT INTO activity_logs (user_id,action,entity_type,entity_id) VALUES (?,?,?,?)', [req.user.id,'APPROVE_PAYROLL','payroll_period',id]);
         res.json({ message: 'Payroll approved' });
-    } catch (e) { console.error(e); res.status(500).json({ error: 'Internal server error' }); }
-}
+});
 
 // ── MARK PERIOD AS PAID ──────────────────────────────────────────────
-export async function markPaid(req, res) {
-    try {
+export const markPaid = asyncHandler(async (req, res) => {
         const { id } = req.params;
         const { paymentDate } = req.body;
         const period = await get('SELECT * FROM payroll_periods WHERE id=?', [id]);
@@ -249,12 +238,10 @@ export async function markPaid(req, res) {
         }
         await run('INSERT INTO activity_logs (user_id,action,entity_type,entity_id) VALUES (?,?,?,?)', [req.user.id,'MARK_PAYROLL_PAID','payroll_period',id]);
         res.json({ message: 'Payroll marked as paid' });
-    } catch (e) { console.error(e); res.status(500).json({ error: 'Internal server error' }); }
-}
+});
 
 // ── SALARY STRUCTURES ────────────────────────────────────────────────
-export async function getSalaryStructure(req, res) {
-    try {
+export const getSalaryStructure = asyncHandler(async (req, res) => {
         const { employeeId } = req.params;
         const structures = await query(
             `SELECT ss.*, CONCAT(u.first_name,' ',u.last_name) AS created_by_name
@@ -263,11 +250,9 @@ export async function getSalaryStructure(req, res) {
              WHERE ss.employee_id=? ORDER BY ss.effective_from DESC`, [employeeId]
         );
         res.json(structures);
-    } catch (e) { console.error(e); res.status(500).json({ error: 'Internal server error' }); }
-}
+});
 
-export async function upsertSalaryStructure(req, res) {
-    try {
+export const upsertSalaryStructure = asyncHandler(async (req, res) => {
         const { employeeId } = req.params;
         const {
             effectiveFrom, basicSalary, housingAllowance, transportAllowance,
@@ -293,7 +278,7 @@ export async function upsertSalaryStructure(req, res) {
              parseFloat(transportAllowance||0), parseFloat(foodAllowance||0),
              parseFloat(phoneAllowance||0), parseFloat(otherAllowance||0),
              otherAllowanceLabel||null,
-             parseFloat(gosiEmployeePct||9.75), parseFloat(gosiEmployerPct||11.75),
+             parseFloat(gosiEmployeePct || GOSI.EMPLOYEE_RATE * 100), parseFloat(gosiEmployerPct || GOSI.EMPLOYER_RATE * 100),
              notes||null, req.user.id]
         );
 
@@ -303,12 +288,10 @@ export async function upsertSalaryStructure(req, res) {
         const latest = await get('SELECT * FROM salary_structures WHERE employee_id=? AND is_active=1', [employeeId]);
         await run('INSERT INTO activity_logs (user_id,action,entity_type,entity_id) VALUES (?,?,?,?)', [req.user.id,'UPDATE_SALARY_STRUCTURE','employee',employeeId]);
         res.json(latest);
-    } catch (e) { console.error(e); res.status(500).json({ error: 'Internal server error' }); }
-}
+});
 
 // ── LOANS ────────────────────────────────────────────────────────────
-export async function getLoans(req, res) {
-    try {
+export const getLoans = asyncHandler(async (req, res) => {
         const { employeeId, status } = req.query;
         let sql = `SELECT el.*, e.first_name, e.last_name, e.employee_code, e.department
                    FROM employee_loans el JOIN employees e ON e.id = el.employee_id WHERE 1=1`;
@@ -317,11 +300,9 @@ export async function getLoans(req, res) {
         if (status)     { sql += ' AND el.status=?'; params.push(status); }
         sql += ' ORDER BY el.created_at DESC';
         res.json(await query(sql, params));
-    } catch (e) { console.error(e); res.status(500).json({ error: 'Internal server error' }); }
-}
+});
 
-export async function createLoan(req, res) {
-    try {
+export const createLoan = asyncHandler(async (req, res) => {
         const { employeeId, loanAmount, monthlyDeduction, disbursedDate, reason, notes } = req.body;
         if (!employeeId || !loanAmount || !monthlyDeduction || !disbursedDate) {
             return res.status(400).json({ error: 'Employee, amount, monthly deduction and date are required' });
@@ -335,22 +316,18 @@ export async function createLoan(req, res) {
         );
         const loan = await get('SELECT * FROM employee_loans WHERE id=?', [result.id]);
         res.status(201).json(loan);
-    } catch (e) { console.error(e); res.status(500).json({ error: 'Internal server error' }); }
-}
+});
 
-export async function updateLoanStatus(req, res) {
-    try {
+export const updateLoanStatus = asyncHandler(async (req, res) => {
         const { id } = req.params;
         const { status } = req.body;
         if (!['active','completed','cancelled'].includes(status)) return res.status(400).json({ error: 'Invalid status' });
         await run('UPDATE employee_loans SET status=? WHERE id=?', [status, id]);
         res.json({ message: 'Loan status updated' });
-    } catch (e) { console.error(e); res.status(500).json({ error: 'Internal server error' }); }
-}
+});
 
 // ── PAYROLL STATS ────────────────────────────────────────────────────
-export async function getPayrollStats(req, res) {
-    try {
+export const getPayrollStats = asyncHandler(async (req, res) => {
         const currentYear = new Date().getFullYear();
         const [latestPeriod, ytdCost, activeLoans, pendingApproval] = await Promise.all([
             get(`SELECT * FROM payroll_periods ORDER BY period_year DESC, period_month DESC LIMIT 1`),
@@ -360,8 +337,7 @@ export async function getPayrollStats(req, res) {
             get(`SELECT COUNT(*) as count FROM payroll_periods WHERE status='draft'`),
         ]);
         res.json({ latestPeriod, ytdCost, activeLoans, pendingApproval: pendingApproval?.count || 0 });
-    } catch (e) { console.error(e); res.status(500).json({ error: 'Internal server error' }); }
-}
+});
 
 // ── INTERNAL HELPER ──────────────────────────────────────────────────
 async function updatePeriodTotals(periodId) {
@@ -376,8 +352,7 @@ async function updatePeriodTotals(periodId) {
 }
 
 // ── EMPLOYEE: GET OWN SLIPS ──────────────────────────────────────────
-export async function getMySlips(req, res) {
-    try {
+export const getMySlips = asyncHandler(async (req, res) => {
         const emp = await get('SELECT id FROM employees WHERE user_id=?', [req.user.id]);
         if (!emp) return res.status(404).json({ error: 'No employee record linked to your account' });
 
@@ -397,12 +372,10 @@ export async function getMySlips(req, res) {
             [emp.id]
         );
         res.json(slips);
-    } catch (e) { console.error(e); res.status(500).json({ error: 'Internal server error' }); }
-}
+});
 
 // ── GET SINGLE SLIP FOR PRINT (any admin or the slip's own employee) ─
-export async function getSlipById(req, res) {
-    try {
+export const getSlipById = asyncHandler(async (req, res) => {
         const { id } = req.params;
         const slip = await get(
             `SELECT ps.*,
@@ -424,12 +397,10 @@ export async function getSlipById(req, res) {
             }
         }
         res.json(slip);
-    } catch (e) { console.error(e); res.status(500).json({ error: 'Internal server error' }); }
-}
+});
 
 // ── YTD SUMMARY PER EMPLOYEE ─────────────────────────────────────────
-export async function getEmployeeYTD(req, res) {
-    try {
+export const getEmployeeYTD = asyncHandler(async (req, res) => {
         const { employeeId } = req.params;
         const year = req.query.year || new Date().getFullYear();
         const summary = await get(
@@ -448,5 +419,4 @@ export async function getEmployeeYTD(req, res) {
             [employeeId, year]
         );
         res.json(summary);
-    } catch (e) { console.error(e); res.status(500).json({ error: 'Internal server error' }); }
-}
+});

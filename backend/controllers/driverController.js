@@ -1,5 +1,8 @@
+import { asyncHandler } from '../middleware/asyncHandler.js';
 import { query, get, run, beginTransaction, commit, rollback } from '../database/db.js';
 import { getPublicUrl } from '../config/multer.js';
+
+const n = (v) => (v !== undefined && v !== '' && v !== null) ? v : null;
 
 function generateEmployeeCode() {
     return 'EMP-' + Date.now().toString(36).toUpperCase().slice(-6);
@@ -8,8 +11,7 @@ function generateEmployeeCode() {
 // ============================================
 // GET ALL DRIVERS
 // ============================================
-export async function getAllDrivers(req, res) {
-    try {
+export const getAllDrivers = asyncHandler(async (req, res) => {
         const { status, search, available, rating, vehicleAssignment, licenseType, sortExperience, sortTrips, page = 1, limit = 50 } = req.query;
 
         let sql = `
@@ -84,18 +86,13 @@ export async function getAllDrivers(req, res) {
 
         const drivers = await query(sql, params);
         res.json(drivers);
-    } catch (error) {
-        console.error('Get drivers error:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
-}
+});
 
 // ============================================
 // GET DRIVER BY ID
 // Drivers can only access their own record.
 // ============================================
-export async function getDriverById(req, res) {
-    try {
+export const getDriverById = asyncHandler(async (req, res) => {
         const { id } = req.params;
 
         // Driver role: enforce own-data only
@@ -140,17 +137,12 @@ export async function getDriverById(req, res) {
         );
 
         res.json({ ...driver, trips, assignments });
-    } catch (error) {
-        console.error('Get driver error:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
-}
+});
 
 // ============================================
 // CREATE DRIVER
 // ============================================
-export async function createDriver(req, res) {
-    try {
+export const createDriver = asyncHandler(async (req, res) => {
         const {
             firstName, lastName, email, phone, nationality, idNumber, dateOfBirth,
             address, emergencyContactName, emergencyContactPhone, hireDate,
@@ -203,17 +195,12 @@ export async function createDriver(req, res) {
             await rollback();
             throw error;
         }
-    } catch (error) {
-        console.error('Create driver error:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
-}
+});
 
 // ============================================
 // UPDATE DRIVER
 // ============================================
-export async function updateDriver(req, res) {
-    try {
+export const updateDriver = asyncHandler(async (req, res) => {
         const { id } = req.params;
         const updates = req.body;
 
@@ -240,8 +227,8 @@ export async function updateDriver(req, res) {
                 nationality = COALESCE(?, nationality),
                 hire_date   = COALESCE(?, hire_date)
              WHERE id = ?`,
-            [updates.firstName, updates.lastName, updates.email, updates.phone,
-             updates.address, updates.nationality, updates.hireDate, driver.employee_id]
+            [n(updates.firstName), n(updates.lastName), n(updates.email), n(updates.phone),
+             n(updates.address), n(updates.nationality), n(updates.hireDate), driver.employee_id]
         );
 
         await run(
@@ -255,9 +242,9 @@ export async function updateDriver(req, res) {
                 rating                      = COALESCE(?, rating),
                 photo_url                   = COALESCE(?, photo_url)
              WHERE id = ?`,
-            [updates.licenseNumber, updates.licenseType, updates.licenseExpiry,
-             updates.medicalCertificateExpiry, updates.yearsOfExperience,
-             updates.status, updates.rating, photoUrl, id]
+            [n(updates.licenseNumber), n(updates.licenseType), n(updates.licenseExpiry),
+             n(updates.medicalCertificateExpiry), n(updates.yearsOfExperience),
+             n(updates.status), n(updates.rating), photoUrl, id]
         );
 
         await run(
@@ -267,18 +254,13 @@ export async function updateDriver(req, res) {
         );
 
         res.json({ message: 'Driver updated successfully', photoUrl });
-    } catch (error) {
-        console.error('Update driver error:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
-}
+});
 
 // ============================================
 // DELETE DRIVER
 // Cleans up all FK references before deleting.
 // ============================================
-export async function deleteDriver(req, res) {
-    try {
+export const deleteDriver = asyncHandler(async (req, res) => {
         const { id } = req.params;
 
         const driver = await get('SELECT * FROM drivers WHERE id = ?', [id]);
@@ -309,17 +291,12 @@ export async function deleteDriver(req, res) {
         );
 
         res.json({ message: 'Driver deleted successfully' });
-    } catch (error) {
-        console.error('Delete driver error:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
-}
+});
 
 // ============================================
 // GET DRIVER PERFORMANCE
 // ============================================
-export async function getDriverPerformance(req, res) {
-    try {
+export const getDriverPerformance = asyncHandler(async (req, res) => {
         const { id } = req.params;
 
         // Driver can only view their own performance
@@ -361,17 +338,12 @@ export async function getDriverPerformance(req, res) {
         );
 
         res.json({ stats, monthlyTrips });
-    } catch (error) {
-        console.error('Get driver performance error:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
-}
+});
 
 // ============================================
 // GET AVAILABLE DRIVERS
 // ============================================
-export async function getAvailableDrivers(req, res) {
-    try {
+export const getAvailableDrivers = asyncHandler(async (req, res) => {
         const drivers = await query(
             `SELECT d.id, e.first_name, e.last_name, d.license_type, d.rating, d.photo_url
              FROM drivers d
@@ -380,15 +352,10 @@ export async function getAvailableDrivers(req, res) {
              ORDER BY e.first_name, e.last_name`
         );
         res.json(drivers);
-    } catch (error) {
-        console.error('Get available drivers error:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
-}
+});
 
 // ── UPDATE DRIVER RATING (super_admin + admin only) ─────────────────
-export async function updateDriverRating(req, res) {
-    try {
+export const updateDriverRating = asyncHandler(async (req, res) => {
         const { id } = req.params;
         const { rating, notes } = req.body;
 
@@ -414,8 +381,4 @@ export async function updateDriverRating(req, res) {
         );
 
         res.json({ message: 'Rating updated successfully', rating: r });
-    } catch (error) {
-        console.error('Update driver rating error:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
-}
+});

@@ -1,3 +1,4 @@
+import { asyncHandler } from '../middleware/asyncHandler.js';
 import bcrypt from 'bcryptjs';
 import { query, get, run } from '../database/db.js';
 import { generateToken } from '../middleware/auth.js';
@@ -5,8 +6,7 @@ import { generateToken } from '../middleware/auth.js';
 // ============================================
 // LOGIN
 // ============================================
-export async function login(req, res) {
-    try {
+export const login = asyncHandler(async (req, res) => {
         const { email, password } = req.body;
 
         if (!email || !password) {
@@ -46,17 +46,12 @@ export async function login(req, res) {
                 department: user.department,
             },
         });
-    } catch (error) {
-        console.error('Login error:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
-}
+});
 
 // ============================================
 // GET PROFILE
 // ============================================
-export async function getProfile(req, res) {
-    try {
+export const getProfile = asyncHandler(async (req, res) => {
         const user = await get(
             `SELECT u.*, e.id AS employee_id, e.employee_code, e.position, e.hire_date, e.photo_url
              FROM users u
@@ -69,19 +64,14 @@ export async function getProfile(req, res) {
 
         delete user.password;
         res.json(user);
-    } catch (error) {
-        console.error('Get profile error:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
-}
+});
 
 // ============================================
 // GET OWN EMPLOYEE RECORD
 // Available to all authenticated users.
 // Returns the employee row linked to the logged-in user_id.
 // ============================================
-export async function getMyEmployeeProfile(req, res) {
-    try {
+export const getMyEmployeeProfile = asyncHandler(async (req, res) => {
         const { query: dbQuery, get: dbGet } = await import('../database/db.js');
         const emp = await dbGet(
             `SELECT e.*,
@@ -100,17 +90,12 @@ export async function getMyEmployeeProfile(req, res) {
         // Strip sensitive financial data for non-admin viewers of own profile
         // (salary, bank info only visible to the employee themselves and admin)
         res.json(emp);
-    } catch (error) {
-        console.error('Get my employee profile error:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
-}
+});
 
 // ============================================
 // UPDATE PROFILE
 // ============================================
-export async function updateProfile(req, res) {
-    try {
+export const updateProfile = asyncHandler(async (req, res) => {
         const { firstName, lastName, phone, department } = req.body;
 
         await run(
@@ -124,17 +109,12 @@ export async function updateProfile(req, res) {
         );
 
         res.json({ message: 'Profile updated successfully' });
-    } catch (error) {
-        console.error('Update profile error:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
-}
+});
 
 // ============================================
 // CHANGE PASSWORD
 // ============================================
-export async function changePassword(req, res) {
-    try {
+export const changePassword = asyncHandler(async (req, res) => {
         const { currentPassword, newPassword } = req.body;
         const user = await get('SELECT password FROM users WHERE id = ?', [req.user.id]);
 
@@ -151,19 +131,14 @@ export async function changePassword(req, res) {
         await run('UPDATE users SET password = ? WHERE id = ?', [hashed, req.user.id]);
 
         res.json({ message: 'Password changed successfully' });
-    } catch (error) {
-        console.error('Change password error:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
-}
+});
 
 // ============================================
 // DASHBOARD STATS
 // Drivers receive a personal summary only.
 // All other roles receive the full dashboard.
 // ============================================
-export async function getDashboardStats(req, res) {
-    try {
+export const getDashboardStats = asyncHandler(async (req, res) => {
         // ── DRIVER: personal view ──────────────────────
         if (req.user.role === 'driver' && req.driverId) {
             const driverId = req.driverId;
@@ -326,8 +301,4 @@ export async function getDashboardStats(req, res) {
             expiryAlerts,
             monthlyRevenueChart,
         });
-    } catch (error) {
-        console.error('Dashboard stats error:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
-}
+});
