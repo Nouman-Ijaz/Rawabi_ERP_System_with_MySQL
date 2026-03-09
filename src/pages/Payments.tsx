@@ -52,6 +52,7 @@ export default function Payments() {
   const [showCreate, setShowCreate]     = useState(false);
   const [openInvoices, setOpenInvoices] = useState<any[]>([]);
   const [saving, setSaving]             = useState(false);
+  const [viewPayment, setViewPayment]   = useState<any>(null);
 
   // Totals
   const [totalCollected, setTotalCollected] = useState(0);
@@ -190,7 +191,7 @@ export default function Payments() {
           <table className="w-full text-xs">
             <thead>
               <tr className="border-b border-white/5">
-                {['Payment #','Invoice','Customer','Date','Amount','Method','Reference',''].map(h => (
+                {['Payment #','Invoice','Customer','Date','Amount','Method','Reference','Actions'].map(h => (
                   <th key={h} className="px-4 py-3 text-left text-[11px] font-medium text-slate-500">{h}</th>
                 ))}
               </tr>
@@ -214,6 +215,12 @@ export default function Payments() {
                   </td>
                   <td className="px-4 py-3 text-slate-400">{p.reference_number || '—'}</td>
                   <td className="px-4 py-3 text-slate-500 text-[11px] max-w-[120px] truncate">{p.notes || ''}</td>
+                  <td className="px-4 py-3">
+                    <button onClick={() => setViewPayment(p)}
+                      className="px-2.5 py-1 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 rounded text-[10px] font-medium transition-colors">
+                      View
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -282,6 +289,49 @@ export default function Payments() {
                 className="px-5 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs font-semibold rounded-lg transition-colors">
                 {saving ? 'Saving...' : `Record SAR ${Number(amount || 0).toFixed(2)}`}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── PAYMENT DETAIL MODAL ── */}
+      {viewPayment && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="w-full max-w-lg bg-[#1a1d27] rounded-2xl border border-white/10 shadow-2xl">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-white/5">
+              <div>
+                <h2 className="text-sm font-bold text-white font-mono">{viewPayment.payment_number}</h2>
+                <p className="text-[11px] text-slate-500 mt-0.5">{viewPayment.customer_name}</p>
+              </div>
+              <button onClick={() => setViewPayment(null)} className="p-1 text-slate-400 hover:text-white">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg>
+              </button>
+            </div>
+            <div className="p-6 space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                {([
+                  ['Amount',    fmtSAR(viewPayment.amount)],
+                  ['Date',      fmtDate(viewPayment.payment_date)],
+                  ['Method',    viewPayment.payment_method?.replace('_',' ') || '—'],
+                  ['Invoice',   viewPayment.invoice_number || '—'],
+                  ['Reference', viewPayment.reference_number || '—'],
+                  ['Bank',      viewPayment.bank_name || '—'],
+                ] as [string,string][]).map(([label, val]) => (
+                  <div key={label} className="bg-[#0f1117] rounded-lg p-3">
+                    <div className="text-[10px] text-slate-500 uppercase tracking-wide mb-1">{label}</div>
+                    <div className="text-xs text-white font-medium">{val}</div>
+                  </div>
+                ))}
+              </div>
+              {viewPayment.notes && (
+                <div className="bg-[#0f1117] rounded-lg p-3">
+                  <div className="text-[10px] text-slate-500 uppercase tracking-wide mb-1">Notes</div>
+                  <div className="text-xs text-slate-300">{viewPayment.notes}</div>
+                </div>
+              )}
+            </div>
+            <div className="flex justify-end px-6 py-4 border-t border-white/5">
+              <button onClick={() => setViewPayment(null)} className="px-4 py-2 text-xs text-slate-400 hover:text-white transition-colors">Close</button>
             </div>
           </div>
         </div>

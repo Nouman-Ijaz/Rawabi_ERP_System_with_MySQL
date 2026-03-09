@@ -8,6 +8,7 @@ import dotenv from 'dotenv';
 import routes from './routes/index.js';
 import { initializeDatabase, closePool } from './database/db.js';
 import { initializeUploadDirs } from './config/multer.js';
+import { startExpiryScheduler, stopExpiryScheduler } from './services/expiryAlerts.js';
 
 dotenv.config();
 
@@ -99,6 +100,7 @@ app.use((req, res) => {
 async function startServer() {
     try {
         await initializeDatabase();
+        startExpiryScheduler();
 
         app.listen(PORT, () => {
             console.log(`
@@ -122,6 +124,7 @@ async function startServer() {
 // ============================================
 async function shutdown(signal) {
     console.log(`\n${signal} received — shutting down gracefully...`);
+    stopExpiryScheduler();
     await closePool();
     process.exit(0);
 }

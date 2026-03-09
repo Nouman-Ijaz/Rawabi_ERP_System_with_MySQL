@@ -331,7 +331,7 @@ export default function Fleet() {
             <div className="overflow-x-auto">
               <table className="w-full text-xs">
                 <thead><tr className="border-b border-white/5">
-                  {['Code','Plate','Type','Brand / Model','Year','Fuel','Capacity','Driver','Reg. Expiry','Ins. Expiry','Status',''].map(h=>(
+                  {['Code','Plate','Type','Brand / Model','Year','Fuel','Capacity','Driver','Reg. Expiry','Ins. Expiry','Status','Actions'].map(h=>(
                     <th key={h} className="px-4 py-3 text-left text-[11px] font-medium text-slate-500 whitespace-nowrap">{h}</th>
                   ))}
                 </tr></thead>
@@ -408,7 +408,7 @@ export default function Fleet() {
             <div className="overflow-x-auto">
               <table className="w-full text-xs">
                 <thead><tr className="border-b border-white/5">
-                  {['Name','License #','Type','Lic. Expiry','Medical Exp.','Experience','Trips','Rating','Vehicle','Status',''].map(h=>(
+                  {['Name','License #','Type','Lic. Expiry','Medical Exp.','Experience','Trips','Rating','Vehicle','Status','Actions'].map(h=>(
                     <th key={h} className="px-4 py-3 text-left text-[11px] font-medium text-slate-500 whitespace-nowrap">{h}</th>
                   ))}
                 </tr></thead>

@@ -62,6 +62,7 @@ export default function Expenses() {
   const [filterStatus, setFilterStatus] = useState('');
   const [filterCat, setFilterCat]     = useState('');
   const [saving, setSaving]           = useState(false);
+  const [viewExpense, setViewExpense] = useState<any>(null);
 
   // Category totals
   const [catTotals, setCatTotals]     = useState<Record<string, number>>({});
@@ -246,18 +247,24 @@ export default function Expenses() {
                       <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${ss.bg} ${ss.text}`}>{e.status}</span>
                     </td>
                     <td className="px-4 py-3">
-                      {canApprove && e.status === 'pending' && (
-                        <div className="flex items-center gap-1.5">
-                          <button onClick={() => handleApprove(e.id, 'approved')}
-                            className="px-2 py-1 bg-emerald-600/20 hover:bg-emerald-600/40 text-emerald-400 rounded text-[10px] font-medium transition-colors">
-                            Approve
-                          </button>
-                          <button onClick={() => handleApprove(e.id, 'rejected')}
-                            className="px-2 py-1 bg-red-600/20 hover:bg-red-600/40 text-red-400 rounded text-[10px] font-medium transition-colors">
-                            Reject
-                          </button>
-                        </div>
-                      )}
+                      <div className="flex items-center gap-1.5">
+                        <button onClick={() => setViewExpense(e)}
+                          className="px-2.5 py-1 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 rounded text-[10px] font-medium transition-colors">
+                          View
+                        </button>
+                        {canApprove && e.status === 'pending' && (
+                          <>
+                            <button onClick={() => handleApprove(e.id, 'approved')}
+                              className="px-2 py-1 bg-emerald-600/20 hover:bg-emerald-600/40 text-emerald-400 rounded text-[10px] font-medium transition-colors">
+                              Approve
+                            </button>
+                            <button onClick={() => handleApprove(e.id, 'rejected')}
+                              className="px-2 py-1 bg-red-600/20 hover:bg-red-600/40 text-red-400 rounded text-[10px] font-medium transition-colors">
+                              Reject
+                            </button>
+                          </>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 );
@@ -319,6 +326,65 @@ export default function Expenses() {
                 className="px-5 py-2 bg-orange-600 hover:bg-orange-500 disabled:opacity-50 text-white text-xs font-semibold rounded-lg transition-colors">
                 {saving ? 'Submitting...' : `Submit SAR ${Number(amount || 0).toFixed(2)}`}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── EXPENSE DETAIL MODAL ── */}
+      {viewExpense && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="w-full max-w-lg bg-[#1a1d27] rounded-2xl border border-white/10 shadow-2xl">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-white/5">
+              <div>
+                <h2 className="text-sm font-bold text-white font-mono">{viewExpense.expense_number}</h2>
+                <p className="text-[11px] text-slate-500 mt-0.5">{fmtDate(viewExpense.expense_date)}</p>
+              </div>
+              <button onClick={() => setViewExpense(null)} className="p-1 text-slate-400 hover:text-white">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg>
+              </button>
+            </div>
+            <div className="p-6 space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                {([
+                  ['Amount',   fmtSAR(viewExpense.amount)],
+                  ['Category', viewExpense.category || '—'],
+                  ['Method',   viewExpense.payment_method?.replace('_',' ') || '—'],
+                  ['Vendor',   viewExpense.vendor_name || '—'],
+                  ['Logged By',viewExpense.created_by_name || '—'],
+                  ['Status',   viewExpense.status || '—'],
+                ] as [string,string][]).map(([label, val]) => (
+                  <div key={label} className="bg-[#0f1117] rounded-lg p-3">
+                    <div className="text-[10px] text-slate-500 uppercase tracking-wide mb-1">{label}</div>
+                    <div className="text-xs text-white font-medium">{val}</div>
+                  </div>
+                ))}
+              </div>
+              <div className="bg-[#0f1117] rounded-lg p-3">
+                <div className="text-[10px] text-slate-500 uppercase tracking-wide mb-1">Description</div>
+                <div className="text-xs text-slate-300">{viewExpense.description || '—'}</div>
+              </div>
+              {viewExpense.notes && (
+                <div className="bg-[#0f1117] rounded-lg p-3">
+                  <div className="text-[10px] text-slate-500 uppercase tracking-wide mb-1">Notes</div>
+                  <div className="text-xs text-slate-300">{viewExpense.notes}</div>
+                </div>
+              )}
+              {canApprove && viewExpense.status === 'pending' && (
+                <div className="flex gap-2 pt-1">
+                  <button onClick={() => { handleApprove(viewExpense.id, 'approved'); setViewExpense(null); }}
+                    className="flex-1 py-2 bg-emerald-600/20 hover:bg-emerald-600/40 text-emerald-400 rounded-lg text-xs font-medium transition-colors">
+                    Approve
+                  </button>
+                  <button onClick={() => { handleApprove(viewExpense.id, 'rejected'); setViewExpense(null); }}
+                    className="flex-1 py-2 bg-red-600/20 hover:bg-red-600/40 text-red-400 rounded-lg text-xs font-medium transition-colors">
+                    Reject
+                  </button>
+                </div>
+              )}
+            </div>
+            <div className="flex justify-end px-6 py-4 border-t border-white/5">
+              <button onClick={() => setViewExpense(null)} className="px-4 py-2 text-xs text-slate-400 hover:text-white transition-colors">Close</button>
             </div>
           </div>
         </div>

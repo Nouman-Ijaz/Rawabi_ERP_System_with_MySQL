@@ -235,7 +235,7 @@ export default function Users(){
             <table className="w-full text-xs">
               <thead>
                 <tr className="border-b border-white/5">
-                  {['User','Role','Department','Phone','Last Login','Status',''].map(h=>(
+                  {['User','Role','Department','Phone','Last Login','Status','Actions'].map(h=>(
                     <th key={h} className="py-3 px-4 text-left text-[10px] font-semibold text-slate-500 uppercase tracking-wide whitespace-nowrap">{h}</th>
                   ))}
                 </tr>

@@ -24,6 +24,7 @@ import Expenses from './pages/Expenses';
 import Maintenance from './pages/Maintenance';
 import Reports from './pages/Reports';
 import Payroll from './pages/Payroll';
+import Leave from './pages/Leave';
 import Users from './pages/Users';
 import Settings from './pages/Settings';
 import Profile from './pages/Profile';
@@ -109,6 +110,9 @@ function App() {
 
             {/* Payroll — all staff can reach /payroll to see "My Slips" */}
             <Route path="/payroll" element={<Payroll />} />
+
+            {/* Leave Management */}
+            <Route path="/leave" element={<Leave />} />
             
             {/* Admin */}
             <Route path="/users" element={

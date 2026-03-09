@@ -184,16 +184,16 @@ export const driversApi = {
   getPerformance: (id: number, period?: string) =>
     fetchApi<any>(`/drivers/${id}/performance?${period ? `period=${period}` : ''}`),
   
-  create: (data: any) => // Changed from FormData
+  create: (data: any) =>
     fetchApi<any>('/drivers', {
       method: 'POST',
-      body: JSON.stringify(data), // Added JSON.stringify
+      body: JSON.stringify(data),
     }),
   
-  update: (id: number, data: any) => // Changed from FormData
+  update: (id: number, data: any) =>
     fetchApi<any>(`/drivers/${id}`, {
       method: 'PUT',
-      body: JSON.stringify(data), // Added JSON.stringify
+      body: JSON.stringify(data),
     }),
   
   delete: (id: number) =>
@@ -329,7 +329,6 @@ export const customersApi = {
 
 // Finance API
 export const financeApi = {
-  // Invoices
   getAllInvoices: (params?: Record<string, string>) =>
     fetchApi<any[]>(`/invoices?${new URLSearchParams(params || {}).toString()}`),
   
@@ -347,7 +346,6 @@ export const financeApi = {
       body: JSON.stringify({ status }),
     }),
   
-  // Payments
   getAllPayments: (params?: Record<string, string>) =>
     fetchApi<any[]>(`/payments?${new URLSearchParams(params || {}).toString()}`),
   
@@ -357,7 +355,6 @@ export const financeApi = {
       body: JSON.stringify(data),
     }),
   
-  // Expenses
   getAllExpenses: (params?: Record<string, string>) =>
     fetchApi<any[]>(`/expenses?${new URLSearchParams(params || {}).toString()}`),
   
@@ -373,18 +370,15 @@ export const financeApi = {
       body: JSON.stringify({ status }),
     }),
   
-  // Reports
   getFinancialSummary: (period?: string) =>
     fetchApi<any>(`/finance/summary${period ? `?period=${period}` : ''}`),
 
-  // Invoice creation helpers
   getDeliverableShipments: () =>
     fetchApi<any[]>('/finance/deliverable-shipments'),
 
   getCompanySettings: () =>
     fetchApi<any>('/finance/company-settings'),
 
-  // Update invoice (full edit)
   updateInvoice: (id: number, data: any) =>
     fetchApi<any>(`/invoices/${id}`, {
       method: 'PUT',
@@ -469,7 +463,26 @@ export const payrollApi = {
     fetchApi<any>(`/payroll/loans/${id}/status`, { method: 'PUT', body: JSON.stringify({ status }) }),
 };
 
-// Export all APIs
+// Leave API
+export const leaveApi = {
+  getSummary:     () => fetchApi<any>('/leave/summary'),
+  getTypes:       () => fetchApi<any[]>('/leave/types'),
+  getBalances:    (employeeId: number, year?: number) =>
+    fetchApi<any[]>(`/leave/balances/${employeeId}${year ? `?year=${year}` : ''}`),
+  updateBalance:  (id: number, data: any) =>
+    fetchApi<any>(`/leave/balances/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  getRequests:    (params?: Record<string,string>) =>
+    fetchApi<any[]>(`/leave/requests?${new URLSearchParams(params||{}).toString()}`),
+  getRequestById: (id: number) => fetchApi<any>(`/leave/requests/${id}`),
+  createRequest:  (data: any) =>
+    fetchApi<any>('/leave/requests', { method: 'POST', body: JSON.stringify(data) }),
+  reviewRequest:  (id: number, status: string, notes?: string) =>
+    fetchApi<any>(`/leave/requests/${id}/review`, { method: 'PUT', body: JSON.stringify({ status, review_notes: notes }) }),
+  cancelRequest:  (id: number) =>
+    fetchApi<any>(`/leave/requests/${id}/cancel`, { method: 'PUT' }),
+};
+
+// Export all APIs (Single central export)
 export const api = {
   auth: authApi,
   users: usersApi,
@@ -483,6 +496,7 @@ export const api = {
   reports: reportsApi,
   settings: settingsApi,
   payroll: payrollApi,
+  leave: leaveApi,
 };
 
 export default api;

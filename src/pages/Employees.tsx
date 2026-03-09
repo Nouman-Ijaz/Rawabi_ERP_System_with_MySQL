@@ -209,7 +209,7 @@ export default function Employees(){
 
   return(
     <div className="space-y-4">
-      <style>{`input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(1) opacity(0.5);cursor:pointer;}`}</style>
+
 
       {/* Header */}
       <div className="flex items-center justify-between">

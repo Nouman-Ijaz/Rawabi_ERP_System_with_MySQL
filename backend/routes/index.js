@@ -228,6 +228,43 @@ router.get('/notifications', authorize(), async (req, res) => {
             }));
         }
 
+        // Admin/dispatcher: document expiry alerts from cron-maintained table
+        if (['super_admin', 'admin', 'dispatcher', 'office_admin'].includes(role)) {
+            const expiryAlerts = await query(
+                `SELECT * FROM expiry_alerts
+                 WHERE is_dismissed = 0 AND severity IN ('critical','warning')
+                 ORDER BY days_until ASC LIMIT 10`
+            ).catch(() => []);
+            expiryAlerts.forEach(a => notes.push({
+                id:       'expiry-' + a.id,
+                type:     'expiry',
+                title:    `${a.doc_type} expiring`,
+                message:  `${a.entity_name} — ${a.days_until <= 0 ? 'EXPIRED' : a.days_until + ' days left'}`,
+                link:     a.entity_type === 'vehicle' ? '/fleet/vehicles' : a.entity_type === 'driver' ? '/fleet/drivers' : '/employees',
+                priority: a.severity === 'critical' ? 'high' : 'medium',
+            }));
+        }
+
+        // Admin/office_admin: pending leave requests
+        if (['super_admin', 'admin', 'office_admin'].includes(role)) {
+            const pendingLeave = await query(
+                `SELECT lr.id, lr.request_number, e.first_name, e.last_name, lt.name AS leave_type
+                 FROM leave_requests lr
+                 JOIN employees e ON e.id = lr.employee_id
+                 JOIN leave_types lt ON lt.id = lr.leave_type_id
+                 WHERE lr.status = 'pending'
+                 ORDER BY lr.applied_at DESC LIMIT 5`
+            ).catch(() => []);
+            pendingLeave.forEach(l => notes.push({
+                id:       'leave-' + l.id,
+                type:     'leave',
+                title:    'Leave request pending',
+                message:  `${l.first_name} ${l.last_name} — ${l.leave_type}`,
+                link:     '/leave',
+                priority: 'medium',
+            }));
+        }
+
         res.json({ notifications: notes, count: notes.length });
     } catch (err) {
         console.error('Notifications error:', err);
@@ -341,6 +378,8 @@ router.get('/reports/driver-performance',   authorize(REPORT_ROLES), reportsCont
 // PAYROLL  (super_admin + admin + accountant)
 // ============================================
 import * as payrollController from '../controllers/payrollController.js';
+import * as leaveController   from '../controllers/leaveController.js';
+import { getActiveAlerts, dismissAlert, runExpiryCheck } from '../services/expiryAlerts.js';
 
 router.get('/payroll/stats',                     authorize(PAY_VIEW), payrollController.getPayrollStats);
 router.get('/payroll/my-slips',                  authorize([]), payrollController.getMySlips);
@@ -358,5 +397,45 @@ router.post('/payroll/salary/:employeeId',       authorize(PAY_EDIT), payrollCon
 router.get('/payroll/loans',                     authorize(PAY_VIEW), payrollController.getLoans);
 router.post('/payroll/loans',                    authorize(PAY_EDIT), payrollController.createLoan);
 router.put('/payroll/loans/:id/status',          authorize(PAY_EDIT), payrollController.updateLoanStatus);
+
+// ============================================
+// LEAVE MANAGEMENT
+// ============================================
+const LEAVE_VIEW = ['super_admin', 'admin', 'office_admin'];
+router.get('/leave/summary',                authorize(LEAVE_VIEW), leaveController.getLeaveSummary);
+router.get('/leave/types',                  authorize([]),          leaveController.getLeaveTypes);
+router.get('/leave/balances/:employeeId',   authorize([]),          leaveController.getBalances);
+router.put('/leave/balances/:id',           authorize(LEAVE_VIEW), leaveController.updateBalance);
+router.get('/leave/requests',               authorize([]),          leaveController.getRequests);
+router.get('/leave/requests/:id',           authorize([]),          leaveController.getRequestById);
+router.post('/leave/requests',              authorize([]),          leaveController.createRequest);
+router.put('/leave/requests/:id/review',    authorize(LEAVE_VIEW), leaveController.reviewRequest);
+router.put('/leave/requests/:id/cancel',    authorize([]),          leaveController.cancelRequest);
+
+// ============================================
+// EXPIRY ALERTS
+// ============================================
+router.get('/expiry-alerts', authorize(FLEET_VIEW), async (req, res) => {
+    try {
+        const alerts = await getActiveAlerts({
+            severity:    req.query.severity    || undefined,
+            entity_type: req.query.entity_type || undefined,
+        });
+        res.json(alerts);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+router.put('/expiry-alerts/:id/dismiss', authorize(FLEET_VIEW), async (req, res) => {
+    try {
+        await dismissAlert(req.params.id, req.user.id);
+        res.json({ message: 'Alert dismissed' });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// Force a manual re-scan (admin only)
+router.post('/expiry-alerts/scan', authorize(ADMIN_UP), async (req, res) => {
+    runExpiryCheck(); // fire and forget
+    res.json({ message: 'Scan triggered' });
+});
 
 export default router;

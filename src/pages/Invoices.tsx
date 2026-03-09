@@ -284,20 +284,145 @@ export default function Invoices() {
     w.onload = () => { w.focus(); w.print(); setTimeout(() => URL.revokeObjectURL(blobUrl), 300000); };
   };
 
-  const handleDownloadPdf = () => {
+  const handleDownloadPdf = async () => {
     if (!selected) return;
-    const html = buildInvoiceHtml();
-    // Sanitise customer name for a safe filename
-    const safeName = selected.customer_name?.replace(/[^a-zA-Z0-9 _-]/g, '').trim() || 'Invoice';
-    const filename = `${selected.invoice_number} - ${safeName}.pdf`;
-    const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
-    const blobUrl = URL.createObjectURL(blob);
-    // Open in new tab — user saves via browser's print → Save as PDF
-    // The <title> pre-fills Chrome's built-in PDF dialog filename correctly
-    const w = window.open(blobUrl, '_blank', 'width=960,height=750');
-    if (!w) { toast.error('Allow pop-ups to save PDF'); return; }
-    // Revoke after 5 min
-    setTimeout(() => URL.revokeObjectURL(blobUrl), 300000);
+    toast.info('Generating PDF…');
+    try {
+      // Load jsPDF from CDN if not already loaded
+      if (!(window as any).jspdf?.jsPDF) {
+        const load = (src: string) => new Promise<void>((res, rej) => {
+          const s = document.createElement('script');
+          s.src = src; s.onload = () => res(); s.onerror = () => rej(new Error('CDN load failed'));
+          document.head.appendChild(s);
+        });
+        await load('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+        await load('https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.3/jspdf.plugin.autotable.min.js');
+      }
+      const jsPDF = (window as any).jspdf.jsPDF;
+      const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+      const inv = selected;
+      const cust = inv.customer_name || 'Customer';
+      const W = 210, pad = 15;
+
+      // Header bar
+      doc.setFillColor(30, 58, 95);
+      doc.rect(0, 0, W, 28, 'F');
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(14); doc.setFont('helvetica', 'bold');
+      doc.text('INVOICE', pad, 11);
+      doc.setFontSize(9); doc.setFont('helvetica', 'normal');
+      doc.text('Rawabi Logistics Co.', pad, 17);
+      doc.text(`${inv.invoice_number}`, W - pad, 11, { align: 'right' });
+      const statusColor: Record<string, [number,number,number]> = {
+        paid:      [5, 150, 105],
+        overdue:   [220, 38, 38],
+        sent:      [37, 99, 235],
+        draft:     [100, 116, 139],
+        cancelled: [100, 116, 139],
+      };
+      const sc = statusColor[inv.status] || [100, 116, 139];
+      doc.setFillColor(...sc);
+      doc.roundedRect(W - pad - 20, 6, 20, 8, 2, 2, 'F');
+      doc.setFontSize(7); doc.setFont('helvetica', 'bold');
+      doc.text((inv.status || '').toUpperCase(), W - pad - 10, 11.5, { align: 'center' });
+
+      // Bill To
+      doc.setTextColor(30, 41, 59);
+      doc.setFontSize(8); doc.setFont('helvetica', 'bold');
+      doc.text('BILL TO', pad, 38);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(10);
+      doc.text(cust, pad, 44);
+      if (inv.customer_address) { doc.setFontSize(8); doc.setTextColor(100, 116, 139); doc.text(inv.customer_address, pad, 49); }
+
+      // Dates box
+      const dates: [string,string][] = [
+        ['Invoice Date', fmtDate(inv.invoice_date)],
+        ['Due Date',     fmtDate(inv.due_date)],
+        ['Payment Terms', `Net ${inv.payment_terms || 30} days`],
+      ];
+      let dy = 38;
+      dates.forEach(([label, val]) => {
+        doc.setFontSize(7); doc.setTextColor(100, 116, 139); doc.setFont('helvetica', 'normal');
+        doc.text(label, 130, dy);
+        doc.setFontSize(9); doc.setTextColor(30, 41, 59); doc.setFont('helvetica', 'bold');
+        doc.text(val, 195, dy, { align: 'right' });
+        dy += 7;
+      });
+
+      // Line items table
+      const lines = (inv.line_items || []).map((l: any) => [
+        l.description || '—',
+        l.unit || '—',
+        Number(l.quantity || 0).toString(),
+        fmtSAR(l.unit_price),
+        fmtSAR((l.quantity || 0) * (l.unit_price || 0)),
+      ]);
+      (doc as any).autoTable({
+        startY: 58,
+        head: [['Description', 'Unit', 'Qty', 'Unit Price', 'Total']],
+        body: lines,
+        theme: 'striped',
+        headStyles: { fillColor: [30, 58, 95], textColor: 255, fontSize: 8, fontStyle: 'bold' },
+        bodyStyles: { fontSize: 8, textColor: [30, 41, 59] },
+        columnStyles: { 0: { cellWidth: 70 }, 4: { halign: 'right' } },
+        margin: { left: pad, right: pad },
+      });
+
+      const finalY = (doc as any).lastAutoTable.finalY + 5;
+      // Totals
+      const totals: [string, string][] = [
+        ['Subtotal', fmtSAR(inv.subtotal)],
+        [`VAT (${inv.vat_rate || 14}%)`, fmtSAR(inv.vat_amount)],
+      ];
+      let ty = finalY;
+      totals.forEach(([label, val]) => {
+        doc.setFontSize(8); doc.setTextColor(100, 116, 139); doc.setFont('helvetica', 'normal');
+        doc.text(label, 150, ty);
+        doc.setTextColor(30, 41, 59);
+        doc.text(val, 195, ty, { align: 'right' });
+        ty += 6;
+      });
+      doc.setDrawColor(30, 58, 95); doc.setLineWidth(0.3);
+      doc.line(130, ty - 1, 195, ty - 1);
+      doc.setFontSize(11); doc.setFont('helvetica', 'bold'); doc.setTextColor(30, 58, 95);
+      doc.text('Total', 150, ty + 5);
+      doc.text(fmtSAR(inv.total_amount), 195, ty + 5, { align: 'right' });
+
+      // Payment history
+      if ((inv.payments || []).length > 0) {
+        const ph = inv.payments.map((p: any) => [
+          p.payment_number, fmtDate(p.payment_date),
+          p.payment_method?.replace('_', ' ') || '—', fmtSAR(p.amount),
+        ]);
+        (doc as any).autoTable({
+          startY: ty + 14,
+          head: [['Payment #', 'Date', 'Method', 'Amount']],
+          body: ph,
+          theme: 'plain',
+          headStyles: { fillColor: [241, 245, 249], textColor: [30, 41, 59], fontSize: 7 },
+          bodyStyles: { fontSize: 7, textColor: [100, 116, 139] },
+          margin: { left: pad, right: pad },
+          tableLineColor: [226, 232, 240], tableLineWidth: 0.1,
+        });
+      }
+
+      // Footer
+      const pageH = 297;
+      doc.setFillColor(248, 250, 252);
+      doc.rect(0, pageH - 16, W, 16, 'F');
+      doc.setFontSize(7); doc.setTextColor(148, 163, 184); doc.setFont('helvetica', 'normal');
+      doc.text('Rawabi Logistics Co. · Confidential', pad, pageH - 7);
+      doc.text(`Generated ${fmtDate(new Date().toISOString())}`, W - pad, pageH - 7, { align: 'right' });
+
+      const safeName = (cust).replace(/[^a-zA-Z0-9 _-]/g, '').trim();
+      doc.save(`${inv.invoice_number} - ${safeName}.pdf`);
+      toast.success('PDF downloaded');
+    } catch (err) {
+      console.error('PDF error:', err);
+      toast.error('PDF generation failed — using print fallback');
+      handlePrint();
+    }
   };
 
   const filtered = invoices.filter(inv =>
@@ -422,7 +547,7 @@ export default function Invoices() {
                     <label className="block text-[11px] text-slate-500 mb-1">Invoice Date</label>
                     <input type="date" value={invoiceDate} onChange={e => handleDateChange(e.target.value)}
                       style={{ colorScheme: 'dark' }}
-                      className="w-full px-3 py-2 text-xs bg-[#0f1117] border border-white/10 rounded-lg text-white focus:outline-none focus:border-blue-500/50 [&::-webkit-calendar-picker-indicator]:opacity-60 [&::-webkit-calendar-picker-indicator]:invert" />
+                      className="w-full px-3 py-2 text-xs bg-[#0f1117] border border-white/10 rounded-lg text-white focus:outline-none focus:border-blue-500/50" />
                   </div>
                   <DSel label="Payment Terms (days)" value={paymentTerms} onChange={(e: any) => handleTermsChange(Number(e.target.value))}>
                     {[15, 30, 45, 60, 90].map(t => <option key={t} value={t}>Net {t}</option>)}
@@ -431,7 +556,7 @@ export default function Invoices() {
                     <label className="block text-[11px] text-slate-500 mb-1">Due Date</label>
                     <input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)}
                       style={{ colorScheme: 'dark' }}
-                      className="w-full px-3 py-2 text-xs bg-[#0f1117] border border-white/10 rounded-lg text-white focus:outline-none focus:border-blue-500/50 [&::-webkit-calendar-picker-indicator]:opacity-60 [&::-webkit-calendar-picker-indicator]:invert" />
+                      className="w-full px-3 py-2 text-xs bg-[#0f1117] border border-white/10 rounded-lg text-white focus:outline-none focus:border-blue-500/50" />
                   </div>
                 </div>
               </div>

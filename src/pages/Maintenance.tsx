@@ -158,7 +158,7 @@ export default function Maintenance() {
 
   return (
     <div className="space-y-5">
-      <style>{`input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(1) opacity(0.5); cursor: pointer; }`}</style>
+
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold text-white">Maintenance</h1>
@@ -231,7 +231,7 @@ export default function Maintenance() {
             <table className="w-full text-xs">
               <thead>
                 <tr className="border-b border-white/5">
-                  {['Vehicle','Type','Service Date','Description','Provider','Cost','Status',''].map(h => (
+                  {['Vehicle','Type','Service Date','Description','Provider','Cost','Status','Actions'].map(h => (
                     <th key={h} className="py-3 px-4 text-left text-[11px] font-medium text-slate-500 whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
