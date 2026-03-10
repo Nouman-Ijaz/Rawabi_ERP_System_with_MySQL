@@ -21,17 +21,12 @@ async function nextRequestNumber() {
     return prefix + String(seq).padStart(3, '0');
 }
 
-// ── Helper: business days count (simple — weekends excluded) ────
-function businessDays(startStr, endStr) {
-    let count = 0;
-    const cur = new Date(startStr);
-    const end = new Date(endStr);
-    while (cur <= end) {
-        const day = cur.getDay();
-        if (day !== 5 && day !== 6) count++; // Fri/Sat = weekend in KSA
-        cur.setDate(cur.getDate() + 1);
-    }
-    return count;
+// ── Helper: calendar days count (Saudi Labor Law — Art. 109 counts calendar days) ──
+function calendarDays(startStr, endStr) {
+    const start = new Date(startStr);
+    const end   = new Date(endStr);
+    const diff  = Math.round((end - start) / (1000 * 60 * 60 * 24)) + 1;
+    return Math.max(0, diff);
 }
 
 // ── Leave Types ──────────────────────────────────────────────────
@@ -46,6 +41,64 @@ export const getBalances = asyncHandler(async (req, res) => {
     const year = req.query.year || new Date().getFullYear();
 
     // Ensure balances exist for this employee/year by seeding from types
+    const types = await query(`SELECT * FROM leave_types WHERE is_active = 1`);
+    for (const t of types) {
+        await run(
+            `INSERT IGNORE INTO leave_balances
+             (employee_id, leave_type_id, year, entitled_days, used_days, pending_days, carried_days)
+             VALUES (?, ?, ?, ?, 0, 0, 0)`,
+            [employeeId, t.id, year, t.days_per_year]
+        );
+    }
+
+    const balances = await query(
+        `SELECT lb.*, lt.name, lt.code, lt.color, lt.is_paid, lt.days_per_year,
+                (lb.entitled_days + lb.carried_days - lb.used_days - lb.pending_days) AS remaining_days
+         FROM leave_balances lb
+         JOIN leave_types lt ON lt.id = lb.leave_type_id
+         WHERE lb.employee_id = ? AND lb.year = ?
+         ORDER BY lt.name`,
+        [employeeId, year]
+    );
+    res.json(balances);
+});
+
+// ── My own balances (resolves employee via user_id, no client-side employeeId needed) ──
+export const getMyBalances = asyncHandler(async (req, res) => {
+    const year = req.query.year || new Date().getFullYear();
+
+    // Resolve employee record for the logged-in user
+    let emp = await get('SELECT id FROM employees WHERE user_id = ?', [req.user.id]);
+    if (!emp) {
+        // Management users may not have an employee record yet.
+        // Only auto-create for management/admin roles — drivers/accountants who have no
+        // employee record have a genuine data problem that should surface clearly.
+        if (MGMT.includes(req.user.role) || ADMIN.includes(req.user.role)) {
+            const userRow = await get(
+                'SELECT first_name, last_name, email FROM users WHERE id = ?',
+                [req.user.id]
+            );
+            if (userRow) {
+                const code = 'EMP-' + Date.now().toString(36).toUpperCase().slice(-6);
+                const created = await run(
+                    `INSERT INTO employees
+                     (employee_code, first_name, last_name, email, department, position,
+                      hire_date, status, employment_type, contract_type, work_shift,
+                      annual_leave_entitlement, user_id)
+                     VALUES (?, ?, ?, ?, 'Management', ?, CURDATE(), 'active',
+                             'full_time', 'permanent', 'morning', 21, ?)`,
+                    [code, userRow.first_name, userRow.last_name, userRow.email,
+                     req.user.role.replace('_', ' '), req.user.id]
+                );
+                emp = { id: created.id };
+            }
+        }
+        // If still no employee (non-management with no record), return empty list
+        if (!emp) return res.json([]);
+    }
+    const employeeId = emp.id;
+
+    // Seed balances for all active leave types if not yet seeded
     const types = await query(`SELECT * FROM leave_types WHERE is_active = 1`);
     for (const t of types) {
         await run(
@@ -90,10 +143,13 @@ export const getRequests = asyncHandler(async (req, res) => {
     const params = [];
     let where = 'WHERE 1=1';
 
-    // Non-management roles can only see their own requests
+    // Non-management roles can only see their own requests.
+    // req.user doesn't carry employee_id (auth middleware only loads basic user cols),
+    // so we resolve it from the employees table.
     if (!MGMT.includes(role)) {
+        const emp = await get('SELECT id FROM employees WHERE user_id = ?', [req.user.id]);
         where += ' AND lr.employee_id = ?';
-        params.push(req.user.employee_id || 0);
+        params.push(emp?.id || 0);
     } else if (employeeId) {
         where += ' AND lr.employee_id = ?';
         params.push(employeeId);
@@ -139,16 +195,47 @@ export const getRequestById = asyncHandler(async (req, res) => {
 
 // ── Create request ───────────────────────────────────────────────
 export const createRequest = asyncHandler(async (req, res) => {
-    const { employee_id, leave_type_id, start_date, end_date, reason } = req.body;
-    if (!employee_id || !leave_type_id || !start_date || !end_date) {
-        throw httpError(400, 'employee_id, leave_type_id, start_date, end_date are required');
+    const { leave_type_id, start_date, end_date, reason } = req.body;
+    let { employee_id } = req.body;
+
+    // If employee_id not supplied (non-management submitting their own),
+    // look it up from the employees table using the logged-in user_id.
+    // For management users who have no employee record yet, auto-create a minimal one
+    // (all staff — including admins — are employees; the user/role distinction is a system-access level).
+    if (!employee_id) {
+        let emp = await get('SELECT id FROM employees WHERE user_id = ?', [req.user.id]);
+        if (!emp) {
+            // Auto-create a minimal employee record so management can use leave
+            const userRow = await get(
+                'SELECT id, first_name, last_name, email FROM users WHERE id = ?',
+                [req.user.id]
+            );
+            if (!userRow) throw httpError(400, 'User record not found');
+            const code = 'EMP-' + Date.now().toString(36).toUpperCase().slice(-6);
+            const result = await run(
+                `INSERT INTO employees
+                 (employee_code, first_name, last_name, email, department, position,
+                  hire_date, status, employment_type, contract_type, work_shift,
+                  annual_leave_entitlement, user_id)
+                 VALUES (?, ?, ?, ?, 'Management', ?, CURDATE(), 'active',
+                         'full_time', 'permanent', 'morning', 21, ?)`,
+                [code, userRow.first_name, userRow.last_name, userRow.email,
+                 req.user.role.replace('_', ' '), req.user.id]
+            );
+            emp = { id: result.id };
+        }
+        employee_id = emp.id;
+    }
+
+    if (!leave_type_id || !start_date || !end_date) {
+        throw httpError(400, 'leave_type_id, start_date, end_date are required');
     }
     if (new Date(start_date) > new Date(end_date)) {
         throw httpError(400, 'start_date must be before end_date');
     }
 
-    const total_days = businessDays(start_date, end_date);
-    if (total_days <= 0) throw httpError(400, 'No working days in selected range');
+    const total_days = calendarDays(start_date, end_date);
+    if (total_days <= 0) throw httpError(400, 'No days in selected range');
 
     // Check for overlapping approved/pending requests
     const overlap = await get(
@@ -167,8 +254,17 @@ export const createRequest = asyncHandler(async (req, res) => {
         [request_number, employee_id, leave_type_id, start_date, end_date, total_days, reason || null]
     );
 
-    // Lock pending days in balance
+    // Ensure balance row exists before locking pending days
     const year = new Date(start_date).getFullYear();
+    const lt = await get('SELECT days_per_year FROM leave_types WHERE id = ?', [leave_type_id]);
+    await run(
+        `INSERT IGNORE INTO leave_balances
+         (employee_id, leave_type_id, year, entitled_days, used_days, pending_days, carried_days)
+         VALUES (?, ?, ?, ?, 0, 0, 0)`,
+        [employee_id, leave_type_id, year, lt?.days_per_year || 0]
+    );
+
+    // Lock pending days in balance
     await run(
         `UPDATE leave_balances
          SET pending_days = pending_days + ?
@@ -229,8 +325,12 @@ export const cancelRequest = asyncHandler(async (req, res) => {
     const lr = await get(`SELECT * FROM leave_requests WHERE id = ?`, [id]);
     if (!lr) throw httpError(404, 'Not found');
 
-    // Only own request OR management
-    if (!MGMT.includes(req.user.role) && lr.employee_id !== req.user.employee_id) {
+    // Resolve the caller's employee_id from DB (req.user doesn't carry it)
+    const emp = await get('SELECT id FROM employees WHERE user_id = ?', [req.user.id]);
+    const callerEmpId = emp?.id;
+
+    // Only own request OR management can cancel
+    if (!MGMT.includes(req.user.role) && lr.employee_id !== callerEmpId) {
         throw httpError(403, 'Cannot cancel someone else\'s request');
     }
     if (!['pending', 'approved'].includes(lr.status)) {

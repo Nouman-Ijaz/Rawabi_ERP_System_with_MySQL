@@ -298,7 +298,7 @@ export default function Employees(){
             <table className="w-full text-xs">
               <thead>
                 <tr className="border-b border-white/5">
-                  {['Employee','Dept / Position','Tenure','Type','Rating','Docs','Salary','Status',''].map(h=>(
+                  {['Employee','Dept / Position','Tenure','Type','Rating','Docs','Salary','Status','Actions'].map(h=>(
                     <th key={h} className="py-3 px-4 text-left text-[10px] font-semibold text-slate-500 uppercase tracking-wide whitespace-nowrap">{h}</th>
                   ))}
                 </tr>

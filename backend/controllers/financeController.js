@@ -121,10 +121,12 @@ export const updateInvoiceStatus = asyncHandler(async (req, res) => {
 export const getAllPayments = asyncHandler(async (req, res) => {
         const { customer, from, to } = req.query;
         let sql = `
-            SELECT p.*, c.company_name as customer_name, i.invoice_number
+            SELECT p.*, c.company_name as customer_name, i.invoice_number,
+                   CONCAT(u.first_name, ' ', u.last_name) as received_by_name
             FROM payments p
             JOIN customers c ON c.id = p.customer_id
             LEFT JOIN invoices i ON i.id = p.invoice_id
+            LEFT JOIN users u ON u.id = p.received_by
             WHERE 1=1
         `;
         const params = [];

@@ -108,19 +108,36 @@ export default function Leave() {
 
   useEffect(() => { load(); }, [load]);
 
-  // Load employees for create form (management only)
+  // When the create modal opens:
+  // - Non-management: auto-set employee_id to their own
+  // - Management: load full employee list; default selection is their own employee record
   useEffect(() => {
-    if (!isManagement) return;
-    employeesApi.getAll()
-      .then((data: any) => setEmployees(Array.isArray(data?.employees ?? data) ? (data?.employees ?? data) : []))
-      .catch(() => {});
-  }, [isManagement]);
+    if (!showCreate) return;
+    if (!isManagement) {
+      // Auto-fill own employee_id so the form passes validation
+      if (user?.employeeId) {
+        setForm(p => ({ ...p, employee_id: String(user.employeeId) }));
+      }
+    } else {
+      // Load employees for the dropdown, then pre-select self if they have an employee record
+      employeesApi.getAll()
+        .then((data: any) => {
+          const list = Array.isArray(data?.data ?? data) ? (data?.data ?? data) : [];
+          setEmployees(list);
+          // Pre-select own employee record so management can submit for themselves easily
+          if (user?.employeeId && !form.employee_id) {
+            setForm(p => ({ ...p, employee_id: String(user.employeeId) }));
+          }
+        })
+        .catch(() => {});
+    }
+  }, [showCreate]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Load employees for balances tab
   useEffect(() => {
     if (tab !== 'balances') return;
     employeesApi.getAll()
-      .then((data: any) => setEmpList(Array.isArray(data?.employees ?? data) ? (data?.employees ?? data) : []))
+      .then((data: any) => setEmpList(Array.isArray(data?.data ?? data) ? (data?.data ?? data) : []))
       .catch(() => {});
   }, [tab]);
 
@@ -135,18 +152,25 @@ export default function Leave() {
   };
 
   const handleCreate = async () => {
-    if (!form.employee_id || !form.leave_type_id || !form.start_date || !form.end_date) {
-      toast.error('Fill all required fields'); return;
-    }
+    if (isManagement && !form.employee_id) { toast.error('Select an employee'); return; }
+    if (!form.leave_type_id) { toast.error('Select a leave type'); return; }
+    if (!form.start_date || !form.end_date) { toast.error('Select start and end dates'); return; }
     setSaving(true);
     try {
-      const r = await leaveApi.createRequest({
-        employee_id:   Number(form.employee_id),
+      const payload: any = {
         leave_type_id: Number(form.leave_type_id),
         start_date:    form.start_date,
         end_date:      form.end_date,
         reason:        form.reason,
-      });
+      };
+      // Management picks an employee from the dropdown.
+      // '__self__' means the admin has no employee record yet — let backend resolve/create via user_id.
+      // Numeric employee_id means they picked someone from the list.
+      if (isManagement && form.employee_id && form.employee_id !== '__self__') {
+        payload.employee_id = Number(form.employee_id);
+      }
+      // If __self__ or non-management: no employee_id sent → backend resolves via req.user.id
+      const r = await leaveApi.createRequest(payload);
       toast.success(`Leave request ${r.request_number} submitted (${r.total_days} days)`);
       setShowCreate(false);
       setForm({ employee_id: '', leave_type_id: '', start_date: '', end_date: '', reason: '' });
@@ -301,9 +325,9 @@ export default function Leave() {
                               </button>
                             </>
                           )}
-                          {['pending','approved'].includes(r.status) && (isManagement || r.employee_id === user?.employeeId) && (
+                          {r.status === 'pending' && (isManagement || r.employee_id === user?.employeeId) && (
                             <button onClick={() => handleCancel(r.id)}
-                              className="p-1.5 rounded-md hover:bg-red-500/15 text-slate-500 hover:text-red-400 transition-colors" title="Cancel">
+                              className="p-1.5 rounded-md hover:bg-red-500/15 text-slate-500 hover:text-red-400 transition-colors" title="Cancel request">
                               <Icon name="ban" className="w-3.5 h-3.5" />
                             </button>
                           )}
@@ -349,12 +373,17 @@ export default function Leave() {
           {/* Balances display */}
           <div className={`${isManagement ? 'lg:col-span-2' : 'lg:col-span-3'} space-y-3`}>
             {!selEmpBal && isManagement && (
-              <div className="bg-[#1a1d27] rounded-xl border border-white/5 p-8 text-center text-slate-500 text-xs">
-                Select an employee to view their leave balances
-              </div>
+              <>
+                {/* Management: show own balances by default, with option to pick another employee */}
+                <div className="text-[11px] text-slate-500 mb-2">Your own balances · {new Date().getFullYear()}</div>
+                <OwnBalances />
+                <div className="mt-3 text-[11px] text-slate-500 border-t border-white/5 pt-3">
+                  Select an employee on the left to view their balances
+                </div>
+              </>
             )}
             {!isManagement && (
-              // Auto-load own balances for non-management
+              // Non-management always see their own balances
               <OwnBalances />
             )}
             {selEmpBal && (
@@ -454,15 +483,51 @@ export default function Leave() {
               </button>
             </div>
             <div className="p-6 space-y-4">
-              {isManagement && (
+              {/* Employee field — management sees dropdown (can submit for anyone or self);
+                  super_admin is exempt from their own leave (top of hierarchy);
+                  non-management see their own name read-only */}
+              {isManagement ? (
                 <Field label="Employee *">
                   <select value={form.employee_id} onChange={e => setForm(p => ({ ...p, employee_id: e.target.value }))} className={sel}>
                     <option value="">— Select employee —</option>
-                    {employees.map(e => (
-                      <option key={e.id} value={e.id}>{e.first_name} {e.last_name} ({e.employee_code})</option>
-                    ))}
+                    {/* For admin users: add a "Myself" option at the top if they're not in the
+                        employee list yet. The backend auto-creates their employee record on first submit. */}
+                    {user?.role === 'admin' && !employees.some(e => e.id === user?.employeeId) && (
+                      <option value="__self__">
+                        {user.firstName} {user.lastName} — You (first-time request)
+                      </option>
+                    )}
+                    {employees
+                      .filter(e => {
+                        // super_admin cannot submit leave for themselves — they are exempt
+                        if (user?.role === 'super_admin' && e.id === user?.employeeId) return false;
+                        return true;
+                      })
+                      .map(e => (
+                        <option key={e.id} value={e.id}>
+                          {e.first_name} {e.last_name} ({e.employee_code})
+                          {e.id === user?.employeeId ? ' — You' : ''}
+                        </option>
+                      ))}
                   </select>
+                  {/* Approval chain notes */}
+                  {user?.role === 'admin' && (form.employee_id === String(user?.employeeId) || form.employee_id === '__self__') && (
+                    <p className="text-[10px] text-amber-400/80 mt-1">Your request will require super admin approval.</p>
+                  )}
+                  {user?.role === 'super_admin' && (
+                    <p className="text-[10px] text-blue-400/80 mt-1">As super admin you are exempt from leave requests. Use this form to submit on behalf of other employees only.</p>
+                  )}
                 </Field>
+              ) : (
+                <div className="bg-[#0f1117] rounded-lg px-3 py-2.5 flex items-center gap-2">
+                  <div className="w-6 h-6 rounded-full bg-blue-600/20 flex items-center justify-center text-[10px] font-bold text-blue-400 flex-shrink-0">
+                    {user?.firstName?.[0]}{user?.lastName?.[0]}
+                  </div>
+                  <div>
+                    <div className="text-xs text-white font-medium">{user?.firstName} {user?.lastName}</div>
+                    <div className="text-[10px] text-slate-500">Submitting for yourself</div>
+                  </div>
+                </div>
               )}
               <Field label="Leave Type *">
                 <select value={form.leave_type_id} onChange={e => setForm(p => ({ ...p, leave_type_id: e.target.value }))} className={sel}>
@@ -574,22 +639,30 @@ export default function Leave() {
   );
 }
 
-// ── Own balances for non-management employees ───────────────────
+// ── Own balances — resolves employee server-side via user_id ─────
 function OwnBalances() {
-  const { user } = useAuth();
   const [balances, setBalances] = useState<any[]>([]);
   const [loading, setLoading]   = useState(true);
+  const [empty, setEmpty]       = useState(false);
 
   useEffect(() => {
-    if (!user?.employeeId) { setLoading(false); return; }
-    leaveApi.getBalances(user.employeeId)
-      .then(d => setBalances(Array.isArray(d) ? d : []))
-      .catch(() => {})
+    leaveApi.getMyBalances()
+      .then(d => {
+        const list = Array.isArray(d) ? d : [];
+        setBalances(list);
+        setEmpty(list.length === 0);
+      })
+      .catch(() => setEmpty(true))
       .finally(() => setLoading(false));
-  }, [user?.employeeId]);
+  }, []);
 
   if (loading) return <div className="h-24 animate-pulse bg-white/5 rounded-xl" />;
-  if (!user?.employeeId) return <div className="text-xs text-slate-500 p-4">No employee profile linked to your account.</div>;
+  if (empty) return (
+    <div className="bg-[#1a1d27] rounded-xl border border-white/5 p-6 text-center">
+      <p className="text-xs text-slate-500">No leave balance data found.</p>
+      <p className="text-[10px] text-slate-600 mt-1">Your user account may not be linked to an employee record yet.</p>
+    </div>
+  );
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -614,6 +687,9 @@ function OwnBalances() {
               <div><div className="text-[10px] text-slate-500">Used</div><div className="text-xs text-amber-400 font-medium">{b.used_days}</div></div>
               <div><div className="text-[10px] text-slate-500">Pending</div><div className="text-xs text-blue-400 font-medium">{b.pending_days}</div></div>
             </div>
+            {Number(b.carried_days) > 0 && (
+              <div className="mt-2 text-[10px] text-slate-500 text-right">+{b.carried_days} carried over</div>
+            )}
           </div>
         );
       })}

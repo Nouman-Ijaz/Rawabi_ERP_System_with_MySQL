@@ -5,6 +5,104 @@ import { toast } from 'sonner';
 
 import { fmtSAR, fmtDate, today } from '@/lib/format';
 
+// ── jsPDF CDN loader ───────────────────────────────────────────────
+async function loadJsPDF(): Promise<any> {
+  if ((window as any).jspdf?.jsPDF) return (window as any).jspdf.jsPDF;
+  const load = (src: string) => new Promise<void>((res, rej) => {
+    const s = document.createElement('script');
+    s.src = src; s.onload = () => res(); s.onerror = () => rej(new Error('CDN load failed: ' + src));
+    document.head.appendChild(s);
+  });
+  await load('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+  await load('https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.3/jspdf.plugin.autotable.min.js');
+  return (window as any).jspdf.jsPDF;
+}
+
+// ── Build a single payment page in an existing doc ────────────────
+function buildPaymentPage(doc: any, p: any, isFirstPage: boolean) {
+  const W = 210, pad = 15;
+  if (!isFirstPage) doc.addPage();
+
+  // Header bar
+  doc.setFillColor(5, 150, 105);
+  doc.rect(0, 0, W, 26, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(13); doc.setFont('helvetica', 'bold');
+  doc.text('PAYMENT RECEIPT', pad, 10);
+  doc.setFontSize(8); doc.setFont('helvetica', 'normal');
+  doc.text('Rawabi Logistics Co.', pad, 16);
+  doc.text(p.payment_number, W - pad, 10, { align: 'right' });
+  doc.setFontSize(7);
+  doc.text(fmtDate(p.payment_date), W - pad, 16, { align: 'right' });
+
+  // Method badge
+  const methodColors: Record<string, [number, number, number]> = {
+    cash: [5, 150, 105], bank_transfer: [37, 99, 235], check: [124, 58, 237],
+    credit_card: [245, 158, 11], online: [6, 182, 212],
+  };
+  const mc = methodColors[p.payment_method] || [100, 116, 139];
+  doc.setFillColor(...mc);
+  doc.roundedRect(W - pad - 28, 5, 28, 8, 2, 2, 'F');
+  doc.setFontSize(7); doc.setFont('helvetica', 'bold');
+  doc.text((p.payment_method || '').replace('_', ' ').toUpperCase(), W - pad - 14, 10.2, { align: 'center' });
+
+  // Customer + amount block
+  doc.setTextColor(30, 41, 59);
+  doc.setFontSize(9); doc.setFont('helvetica', 'bold');
+  doc.text(p.customer_name || '—', pad, 36);
+  doc.setFontSize(8); doc.setFont('helvetica', 'normal'); doc.setTextColor(100, 116, 139);
+  doc.text('Customer', pad, 41);
+
+  doc.setFontSize(16); doc.setFont('helvetica', 'bold'); doc.setTextColor(5, 150, 105);
+  doc.text(fmtSAR(p.amount), W - pad, 38, { align: 'right' });
+  doc.setFontSize(7); doc.setFont('helvetica', 'normal'); doc.setTextColor(100, 116, 139);
+  doc.text('Amount Paid', W - pad, 43, { align: 'right' });
+
+  // Divider
+  doc.setDrawColor(226, 232, 240); doc.setLineWidth(0.2);
+  doc.line(pad, 47, W - pad, 47);
+
+  // Detail fields grid
+  const fields: [string, string][] = [
+    ['Invoice',     p.invoice_number || '—'],
+    ['Payment Date',fmtDate(p.payment_date)],
+    ['Method',      (p.payment_method || '').replace('_', ' ')],
+    ['Reference',   p.reference_number || '—'],
+    ['Bank',        p.bank_name || '—'],
+    ['Received By', p.received_by_name || '—'],
+  ];
+  let fx = pad, fy = 55;
+  fields.forEach(([label, val], i) => {
+    doc.setFillColor(248, 250, 252);
+    doc.roundedRect(fx, fy, 85, 16, 2, 2, 'F');
+    doc.setFontSize(7); doc.setFont('helvetica', 'normal'); doc.setTextColor(100, 116, 139);
+    doc.text(label.toUpperCase(), fx + 4, fy + 5.5);
+    doc.setFontSize(9); doc.setFont('helvetica', 'bold'); doc.setTextColor(30, 41, 59);
+    doc.text(val, fx + 4, fy + 12);
+    fx = fx === pad ? pad + 90 : pad;
+    if (i % 2 === 1) fy += 20;
+  });
+
+  // Notes
+  if (p.notes) {
+    fy += 4;
+    doc.setFillColor(248, 250, 252);
+    doc.roundedRect(pad, fy, W - pad * 2, 14, 2, 2, 'F');
+    doc.setFontSize(7); doc.setFont('helvetica', 'normal'); doc.setTextColor(100, 116, 139);
+    doc.text('NOTES', pad + 4, fy + 5);
+    doc.setFontSize(8); doc.setTextColor(30, 41, 59);
+    doc.text(doc.splitTextToSize(p.notes, W - pad * 2 - 8), pad + 4, fy + 10);
+  }
+
+  // Footer
+  const pageH = 297;
+  doc.setFillColor(248, 250, 252);
+  doc.rect(0, pageH - 14, W, 14, 'F');
+  doc.setFontSize(7); doc.setTextColor(148, 163, 184); doc.setFont('helvetica', 'normal');
+  doc.text('Rawabi Logistics Co. · Payment Receipt', pad, pageH - 5);
+  doc.text(`Generated ${fmtDate(new Date().toISOString())}`, W - pad, pageH - 5, { align: 'right' });
+}
+
 const METHOD_STYLE: Record<string, string> = {
   cash:          'bg-emerald-500/15 text-emerald-400',
   bank_transfer: 'bg-blue-500/15 text-blue-400',
@@ -53,6 +151,7 @@ export default function Payments() {
   const [openInvoices, setOpenInvoices] = useState<any[]>([]);
   const [saving, setSaving]             = useState(false);
   const [viewPayment, setViewPayment]   = useState<any>(null);
+  const [pdfBusy, setPdfBusy]           = useState(false);
 
   // Totals
   const [totalCollected, setTotalCollected] = useState(0);
@@ -137,6 +236,37 @@ export default function Payments() {
     } finally { setSaving(false); }
   };
 
+  // ── PDF: single receipt ─────────────────────────────────────────
+  const printSinglePdf = async (p: any) => {
+    setPdfBusy(true);
+    toast.info('Generating receipt…');
+    try {
+      const jsPDF = await loadJsPDF();
+      const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+      buildPaymentPage(doc, p, true);
+      const safe = (p.customer_name || 'Payment').replace(/[^a-zA-Z0-9 _-]/g, '').trim();
+      doc.save(`${p.payment_number} - ${safe}.pdf`);
+      toast.success('Receipt downloaded');
+    } catch { toast.error('PDF generation failed'); }
+    finally { setPdfBusy(false); }
+  };
+
+  // ── PDF: bulk — all visible payments ───────────────────────────
+  const downloadAllPdf = async () => {
+    if (payments.length === 0) { toast.error('No payments to export'); return; }
+    setPdfBusy(true);
+    toast.info(`Building PDF for ${payments.length} payments…`);
+    try {
+      const jsPDF = await loadJsPDF();
+      const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+      payments.forEach((p, i) => buildPaymentPage(doc, p, i === 0));
+      const stamp = new Date().toISOString().slice(0, 10);
+      doc.save(`Rawabi-Payments-${stamp}.pdf`);
+      toast.success(`${payments.length} payments exported`);
+    } catch { toast.error('PDF export failed'); }
+    finally { setPdfBusy(false); }
+  };
+
   return (
     <div className="space-y-5">
       {/* Header */}
@@ -145,13 +275,20 @@ export default function Payments() {
           <h1 className="text-xl font-bold text-white">Payments</h1>
           <p className="text-xs text-slate-500 mt-0.5">{payments.length} recorded · Total collected {fmtSAR(totalCollected)}</p>
         </div>
-        {canEdit && (
-          <button onClick={() => { resetForm(); setShowCreate(true); }}
-            className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-lg transition-colors">
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4"/></svg>
-            Record Payment
+        <div className="flex items-center gap-2">
+          <button onClick={downloadAllPdf} disabled={pdfBusy || loading || payments.length === 0}
+            className="flex items-center gap-1.5 px-3 py-2 bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 hover:text-white text-xs font-medium rounded-lg transition-colors disabled:opacity-40">
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+            {pdfBusy ? 'Generating…' : 'Download All PDF'}
           </button>
-        )}
+          {canEdit && (
+            <button onClick={() => { resetForm(); setShowCreate(true); }}
+              className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-lg transition-colors">
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4"/></svg>
+              Record Payment
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Summary cards */}
@@ -191,16 +328,16 @@ export default function Payments() {
           <table className="w-full text-xs">
             <thead>
               <tr className="border-b border-white/5">
-                {['Payment #','Invoice','Customer','Date','Amount','Method','Reference','Actions'].map(h => (
+                {['Payment #','Invoice','Customer','Date','Amount','Method','Actions'].map(h => (
                   <th key={h} className="px-4 py-3 text-left text-[11px] font-medium text-slate-500">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={8} className="px-4 py-12 text-center text-slate-500">Loading...</td></tr>
+                <tr><td colSpan={7} className="px-4 py-12 text-center text-slate-500">Loading...</td></tr>
               ) : payments.length === 0 ? (
-                <tr><td colSpan={8} className="px-4 py-12 text-center text-slate-500">No payments recorded</td></tr>
+                <tr><td colSpan={7} className="px-4 py-12 text-center text-slate-500">No payments recorded</td></tr>
               ) : payments.map(p => (
                 <tr key={p.id} className="border-b border-white/5 hover:bg-white/5 transition-colors">
                   <td className="px-4 py-3 font-mono text-emerald-400 font-medium">{p.payment_number}</td>
@@ -213,8 +350,6 @@ export default function Payments() {
                       {p.payment_method?.replace('_', ' ')}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-slate-400">{p.reference_number || '—'}</td>
-                  <td className="px-4 py-3 text-slate-500 text-[11px] max-w-[120px] truncate">{p.notes || ''}</td>
                   <td className="px-4 py-3">
                     <button onClick={() => setViewPayment(p)}
                       className="px-2.5 py-1 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 rounded text-[10px] font-medium transition-colors">
@@ -303,19 +438,29 @@ export default function Payments() {
                 <h2 className="text-sm font-bold text-white font-mono">{viewPayment.payment_number}</h2>
                 <p className="text-[11px] text-slate-500 mt-0.5">{viewPayment.customer_name}</p>
               </div>
-              <button onClick={() => setViewPayment(null)} className="p-1 text-slate-400 hover:text-white">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg>
-              </button>
+              <div className="flex items-center gap-2">
+                <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${METHOD_STYLE[viewPayment.payment_method] || 'bg-slate-500/15 text-slate-400'}`}>
+                  {(viewPayment.payment_method || '').replace('_', ' ')}
+                </span>
+                <button onClick={() => setViewPayment(null)} className="p-1 text-slate-400 hover:text-white ml-1">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+              </div>
+            </div>
+            {/* Amount hero */}
+            <div className="px-6 py-4 bg-emerald-500/5 border-b border-white/5">
+              <p className="text-[10px] text-slate-500 uppercase tracking-wide mb-1">Amount Paid</p>
+              <p className="text-2xl font-bold text-emerald-400 tabular-nums">{fmtSAR(viewPayment.amount)}</p>
             </div>
             <div className="p-6 space-y-3">
               <div className="grid grid-cols-2 gap-3">
                 {([
-                  ['Amount',    fmtSAR(viewPayment.amount)],
-                  ['Date',      fmtDate(viewPayment.payment_date)],
-                  ['Method',    viewPayment.payment_method?.replace('_',' ') || '—'],
-                  ['Invoice',   viewPayment.invoice_number || '—'],
-                  ['Reference', viewPayment.reference_number || '—'],
-                  ['Bank',      viewPayment.bank_name || '—'],
+                  ['Payment Date',  fmtDate(viewPayment.payment_date)],
+                  ['Invoice',       viewPayment.invoice_number || '—'],
+                  ['Reference No.', viewPayment.reference_number || '—'],
+                  ['Bank',          viewPayment.bank_name || '—'],
+                  ['Received By',   viewPayment.received_by_name || '—'],
+                  ['Customer',      viewPayment.customer_name || '—'],
                 ] as [string,string][]).map(([label, val]) => (
                   <div key={label} className="bg-[#0f1117] rounded-lg p-3">
                     <div className="text-[10px] text-slate-500 uppercase tracking-wide mb-1">{label}</div>
@@ -326,11 +471,16 @@ export default function Payments() {
               {viewPayment.notes && (
                 <div className="bg-[#0f1117] rounded-lg p-3">
                   <div className="text-[10px] text-slate-500 uppercase tracking-wide mb-1">Notes</div>
-                  <div className="text-xs text-slate-300">{viewPayment.notes}</div>
+                  <div className="text-xs text-slate-300 whitespace-pre-wrap">{viewPayment.notes}</div>
                 </div>
               )}
             </div>
-            <div className="flex justify-end px-6 py-4 border-t border-white/5">
+            <div className="flex items-center justify-between px-6 py-4 border-t border-white/5">
+              <button onClick={() => printSinglePdf(viewPayment)} disabled={pdfBusy}
+                className="flex items-center gap-1.5 px-4 py-2 bg-blue-600/15 hover:bg-blue-600/30 text-blue-400 text-xs font-medium rounded-lg transition-colors disabled:opacity-40">
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
+                {pdfBusy ? 'Generating…' : 'Print Receipt PDF'}
+              </button>
               <button onClick={() => setViewPayment(null)} className="px-4 py-2 text-xs text-slate-400 hover:text-white transition-colors">Close</button>
             </div>
           </div>

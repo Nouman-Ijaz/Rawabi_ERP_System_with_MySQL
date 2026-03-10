@@ -5,6 +5,115 @@ import { toast } from 'sonner';
 
 import { fmtSAR, fmtDate, today } from '@/lib/format';
 
+// ── jsPDF CDN loader ───────────────────────────────────────────────
+async function loadJsPDF(): Promise<any> {
+  if ((window as any).jspdf?.jsPDF) return (window as any).jspdf.jsPDF;
+  const load = (src: string) => new Promise<void>((res, rej) => {
+    const s = document.createElement('script');
+    s.src = src; s.onload = () => res(); s.onerror = () => rej(new Error('CDN load failed'));
+    document.head.appendChild(s);
+  });
+  await load('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+  await load('https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.3/jspdf.plugin.autotable.min.js');
+  return (window as any).jspdf.jsPDF;
+}
+
+function buildExpensePage(doc: any, e: any, isFirst: boolean) {
+  const W = 210, pad = 15;
+  if (!isFirst) doc.addPage();
+
+  // Category colours
+  const catColors: Record<string, [number,number,number]> = {
+    fuel: [249,115,22], maintenance: [37,99,235], tolls: [124,58,237],
+    insurance: [6,182,212], salaries: [5,150,105], office: [100,116,139],
+    customs: [245,158,11], accommodation: [99,102,241], other: [244,63,94],
+  };
+  const cc = catColors[(e.category || '').toLowerCase()] || [100,116,139];
+
+  // Header bar
+  doc.setFillColor(...cc);
+  doc.rect(0, 0, W, 26, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(13); doc.setFont('helvetica', 'bold');
+  doc.text('EXPENSE RECORD', pad, 10);
+  doc.setFontSize(8); doc.setFont('helvetica', 'normal');
+  doc.text('Rawabi Logistics Co.', pad, 16);
+  doc.text(e.expense_number || '—', W - pad, 10, { align: 'right' });
+  doc.setFontSize(7);
+  doc.text(fmtDate(e.expense_date), W - pad, 16, { align: 'right' });
+
+  // Status badge
+  const statusColors: Record<string, [number,number,number]> = {
+    approved: [5,150,105], pending: [245,158,11], rejected: [220,38,38], paid: [37,99,235],
+  };
+  const sc = statusColors[e.status] || [100,116,139];
+  doc.setFillColor(...sc);
+  doc.roundedRect(W - pad - 28, 4, 28, 8, 2, 2, 'F');
+  doc.setFontSize(7); doc.setFont('helvetica', 'bold');
+  doc.text((e.status || '').toUpperCase(), W - pad - 14, 9.2, { align: 'center' });
+
+  // Amount + category hero
+  doc.setTextColor(30, 41, 59);
+  doc.setFontSize(9); doc.setFont('helvetica', 'bold');
+  doc.text((e.category || '').toUpperCase(), pad, 36);
+  doc.setFontSize(7); doc.setFont('helvetica', 'normal'); doc.setTextColor(100,116,139);
+  doc.text('Category', pad, 41);
+  doc.setFontSize(16); doc.setFont('helvetica', 'bold'); doc.setTextColor(...cc);
+  doc.text(fmtSAR(e.amount), W - pad, 38, { align: 'right' });
+  doc.setFontSize(7); doc.setFont('helvetica', 'normal'); doc.setTextColor(100,116,139);
+  doc.text('Amount', W - pad, 43, { align: 'right' });
+
+  doc.setDrawColor(226,232,240); doc.setLineWidth(0.2);
+  doc.line(pad, 47, W - pad, 47);
+
+  const fields: [string,string][] = [
+    ['Expense Date',    fmtDate(e.expense_date)],
+    ['Payment Method',  (e.payment_method || '').replace('_',' ') || '—'],
+    ['Vendor',          e.vendor_name || '—'],
+    ['Receipt No.',     e.receipt_number || '—'],
+    ['Logged By',       e.created_by_name || '—'],
+    ['Vehicle',         e.vehicle_plate || '—'],
+  ];
+
+  let fx = pad, fy = 55;
+  fields.forEach(([label, val], i) => {
+    doc.setFillColor(248,250,252);
+    doc.roundedRect(fx, fy, 85, 16, 2, 2, 'F');
+    doc.setFontSize(7); doc.setFont('helvetica', 'normal'); doc.setTextColor(100,116,139);
+    doc.text(label.toUpperCase(), fx + 4, fy + 5.5);
+    doc.setFontSize(9); doc.setFont('helvetica', 'bold'); doc.setTextColor(30,41,59);
+    doc.text(val, fx + 4, fy + 12);
+    fx = fx === pad ? pad + 90 : pad;
+    if (i % 2 === 1) fy += 20;
+  });
+
+  fy += 6;
+  if (e.description) {
+    doc.setFillColor(248,250,252);
+    doc.roundedRect(pad, fy, W - pad * 2, 18, 2, 2, 'F');
+    doc.setFontSize(7); doc.setFont('helvetica', 'normal'); doc.setTextColor(100,116,139);
+    doc.text('DESCRIPTION', pad + 4, fy + 5);
+    doc.setFontSize(8); doc.setTextColor(30,41,59);
+    doc.text(doc.splitTextToSize(e.description, W - pad * 2 - 8).slice(0,2), pad + 4, fy + 11);
+    fy += 22;
+  }
+  if (e.notes) {
+    doc.setFillColor(248,250,252);
+    doc.roundedRect(pad, fy, W - pad * 2, 18, 2, 2, 'F');
+    doc.setFontSize(7); doc.setFont('helvetica', 'normal'); doc.setTextColor(100,116,139);
+    doc.text('NOTES', pad + 4, fy + 5);
+    doc.setFontSize(8); doc.setTextColor(30,41,59);
+    doc.text(doc.splitTextToSize(e.notes, W - pad * 2 - 8).slice(0,2), pad + 4, fy + 11);
+  }
+
+  const pageH = 297;
+  doc.setFillColor(248,250,252);
+  doc.rect(0, pageH - 14, W, 14, 'F');
+  doc.setFontSize(7); doc.setTextColor(148,163,184); doc.setFont('helvetica', 'normal');
+  doc.text('Rawabi Logistics Co. · Expense Record', pad, pageH - 5);
+  doc.text(`Generated ${fmtDate(new Date().toISOString())}`, W - pad, pageH - 5, { align: 'right' });
+}
+
 import { EXPENSE_STATUS } from '@/lib/statusStyles';
 
 const CATEGORY_COLORS: Record<string, string> = {
@@ -63,6 +172,7 @@ export default function Expenses() {
   const [filterCat, setFilterCat]     = useState('');
   const [saving, setSaving]           = useState(false);
   const [viewExpense, setViewExpense] = useState<any>(null);
+  const [pdfBusy, setPdfBusy]         = useState(false);
 
   // Category totals
   const [catTotals, setCatTotals]     = useState<Record<string, number>>({});
@@ -96,6 +206,39 @@ export default function Expenses() {
   }, [filterStatus, filterCat]);
 
   useEffect(() => { load(); }, [load]);
+
+  const printSinglePdf = async (e: any) => {
+    setPdfBusy(true);
+    toast.info('Generating expense PDF…');
+    try {
+      const jsPDF = await loadJsPDF();
+      const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+      buildExpensePage(doc, e, true);
+      doc.save(`${e.expense_number || 'Expense'}.pdf`);
+      toast.success('PDF downloaded');
+    } catch { toast.error('PDF generation failed'); }
+    finally { setPdfBusy(false); }
+  };
+
+  const downloadAllPdf = async () => {
+    const list = expenses.filter(e => {
+      if (filterStatus && e.status !== filterStatus) return false;
+      if (filterCat   && e.category !== filterCat)  return false;
+      return true;
+    });
+    if (list.length === 0) { toast.error('No expenses to export'); return; }
+    setPdfBusy(true);
+    toast.info(`Building PDF for ${list.length} expenses…`);
+    try {
+      const jsPDF = await loadJsPDF();
+      const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+      list.forEach((e, i) => buildExpensePage(doc, e, i === 0));
+      const stamp = new Date().toISOString().slice(0, 10);
+      doc.save(`Rawabi-Expenses-${stamp}.pdf`);
+      toast.success(`${list.length} expenses exported`);
+    } catch { toast.error('PDF export failed'); }
+    finally { setPdfBusy(false); }
+  };
 
   const resetForm = () => {
     setExpenseDate(today()); setCategory('fuel'); setDescription('');
@@ -144,13 +287,20 @@ export default function Expenses() {
           <h1 className="text-xl font-bold text-white">Expenses</h1>
           <p className="text-xs text-slate-500 mt-0.5">{expenses.length} total · {expenses.filter(e => e.status === 'pending').length} pending approval</p>
         </div>
-        {canCreate && (
-          <button onClick={() => { resetForm(); setShowCreate(true); }}
-            className="flex items-center gap-2 px-4 py-2 bg-orange-600 hover:bg-orange-500 text-white text-xs font-semibold rounded-lg transition-colors">
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4"/></svg>
-            Log Expense
+        <div className="flex items-center gap-2">
+          <button onClick={downloadAllPdf} disabled={pdfBusy || loading || expenses.length === 0}
+            className="flex items-center gap-1.5 px-3 py-2 bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 hover:text-white text-xs font-medium rounded-lg transition-colors disabled:opacity-40">
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+            {pdfBusy ? 'Generating…' : 'Download All PDF'}
           </button>
-        )}
+          {canCreate && (
+            <button onClick={() => { resetForm(); setShowCreate(true); }}
+              className="flex items-center gap-2 px-4 py-2 bg-orange-600 hover:bg-orange-500 text-white text-xs font-semibold rounded-lg transition-colors">
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4"/></svg>
+              Log Expense
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Summary */}
@@ -383,7 +533,12 @@ export default function Expenses() {
                 </div>
               )}
             </div>
-            <div className="flex justify-end px-6 py-4 border-t border-white/5">
+            <div className="flex items-center justify-between px-6 py-4 border-t border-white/5">
+              <button onClick={() => printSinglePdf(viewExpense)} disabled={pdfBusy}
+                className="flex items-center gap-1.5 px-4 py-2 bg-blue-600/15 hover:bg-blue-600/30 text-blue-400 text-xs font-medium rounded-lg transition-colors disabled:opacity-40">
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
+                {pdfBusy ? 'Generating…' : 'Print Expense PDF'}
+              </button>
               <button onClick={() => setViewExpense(null)} className="px-4 py-2 text-xs text-slate-400 hover:text-white transition-colors">Close</button>
             </div>
           </div>
