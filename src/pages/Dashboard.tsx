@@ -7,6 +7,7 @@ import {
   AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend
 } from 'recharts';
+import { SHIPMENT_HEX, DRIVER_HEX, EXPIRY_COLORS } from '@/lib/statusStyles';
 
 // ── helpers ──────────────────────────────────────────────────────
 const fmt = (n: number) =>
@@ -18,30 +19,10 @@ const fmtShort = (n: number) => {
   return String(n || 0);
 };
 
-const STATUS_COLORS: Record<string, string> = {
-  pending:    '#f59e0b',
-  confirmed:  '#3b82f6',
-  picked_up:  '#8b5cf6',
-  in_transit: '#6366f1',
-  customs:    '#f97316',
-  delivered:  '#10b981',
-  cancelled:  '#ef4444',
-  returned:   '#64748b',
-};
+// Aliases so existing JSX references still work
+const STATUS_COLORS       = SHIPMENT_HEX;
+const DRIVER_STATUS_COLORS = DRIVER_HEX;
 
-const DRIVER_STATUS_COLORS: Record<string, string> = {
-  available:  '#10b981',
-  on_trip:    '#3b82f6',
-  on_leave:   '#f59e0b',
-  suspended:  '#ef4444',
-  off_duty:   '#64748b',
-};
-
-const EXPIRY_COLORS: Record<string, { bg: string; text: string; bar: string }> = {
-  critical: { bg: 'bg-red-500/10',    text: 'text-red-400',    bar: 'bg-red-500' },
-  warning:  { bg: 'bg-amber-500/10',  text: 'text-amber-400',  bar: 'bg-amber-500' },
-  ok:       { bg: 'bg-blue-500/10',   text: 'text-blue-400',   bar: 'bg-blue-500' },
-};
 
 function getExpiryLevel(days: number) {
   if (days <= 7)  return 'critical';

@@ -88,3 +88,73 @@ export const MAINTENANCE_TYPE: Record<string, string> = {
   tire_change: 'bg-amber-500/15 text-amber-400',
   oil_change:  'bg-cyan-500/15 text-cyan-400',
 };
+
+// ── Vehicles ───────────────────────────────────────────────────
+export const VEHICLE_STATUS: Record<string, string> = {
+  active:      'bg-emerald-500/15 text-emerald-400',
+  maintenance: 'bg-amber-500/15 text-amber-400',
+  retired:     'bg-slate-500/15 text-slate-400',
+  sold:        'bg-blue-500/15 text-blue-400',
+  accident:    'bg-red-500/15 text-red-400',
+};
+
+// ── Drivers ────────────────────────────────────────────────────
+export const DRIVER_STATUS: Record<string, string> = {
+  available: 'bg-emerald-500/15 text-emerald-400',
+  on_trip:   'bg-blue-500/15 text-blue-400',
+  on_leave:  'bg-amber-500/15 text-amber-400',
+  suspended: 'bg-red-500/15 text-red-400',
+  off_duty:  'bg-slate-500/15 text-slate-400',
+};
+
+// ── Leave requests ─────────────────────────────────────────────
+export const LEAVE_STATUS: Record<string, string> = {
+  pending:   'bg-amber-500/15 text-amber-400',
+  approved:  'bg-emerald-500/15 text-emerald-400',
+  rejected:  'bg-red-500/15 text-red-400',
+  cancelled: 'bg-slate-500/15 text-slate-400',
+};
+
+// ── Shipment status — hex colours (for Recharts / SVG charts) ──
+// Mirrors SHIPMENT_STATUS but as raw hex for chart libraries.
+export const SHIPMENT_HEX: Record<string, string> = {
+  pending:    '#f59e0b',
+  confirmed:  '#3b82f6',
+  picked_up:  '#8b5cf6',
+  in_transit: '#6366f1',
+  customs:    '#f97316',
+  delivered:  '#10b981',
+  cancelled:  '#ef4444',
+  returned:   '#64748b',
+};
+
+// ── Driver status — hex colours (for Recharts / SVG charts) ───
+export const DRIVER_HEX: Record<string, string> = {
+  available:  '#10b981',
+  on_trip:    '#3b82f6',
+  on_leave:   '#f59e0b',
+  suspended:  '#ef4444',
+  off_duty:   '#64748b',
+};
+
+// ── Expiry severity colours ────────────────────────────────────
+export const EXPIRY_COLORS: Record<string, { bg: string; text: string; bar: string }> = {
+  critical: { bg: 'bg-red-500/10',   text: 'text-red-400',   bar: 'bg-red-500' },
+  warning:  { bg: 'bg-amber-500/10', text: 'text-amber-400', bar: 'bg-amber-500' },
+  ok:       { bg: 'bg-blue-500/10',  text: 'text-blue-400',  bar: 'bg-blue-500' },
+};
+
+// ── Shipment timeline dot colours (hex, for SVG timeline) ─────
+export const TIMELINE_HEX: Record<string, string> = {
+  pending:          '#f59e0b',
+  confirmed:        '#3b82f6',
+  picked_up:        '#8b5cf6',
+  in_transit:       '#6366f1',
+  customs:          '#f97316',
+  delivered:        '#10b981',
+  cancelled:        '#ef4444',
+  returned:         '#64748b',
+  order_created:    '#3b82f6',
+  vehicle_assigned: '#6366f1',
+  rejected:         '#ef4444',
+};

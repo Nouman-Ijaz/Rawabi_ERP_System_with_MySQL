@@ -3,26 +3,19 @@ import { payrollApi, employeesApi } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { ROLES } from '@/lib/roles';
+import { loadJsPDF } from '@/lib/pdf';
+import { inp, sel } from '@/lib/cx';
+import FormField from '@/components/FormField';
+import { PAYROLL_STATUS } from '@/lib/statusStyles';
 import { fmtSAR } from '@/lib/format';
 
 // ── Helpers ──────────────────────────────────────────────────────────
 const MONTHS  = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 const fmtPeriod = (m: number, y: number) => `${MONTHS[m-1]} ${y}`;
 
-import { PAYROLL_STATUS } from '@/lib/statusStyles';
-
-const inp  = 'w-full px-3 py-2 text-xs bg-[#0c0e13] border border-white/10 rounded-lg text-white placeholder-slate-600 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/20 transition-colors';
-const sel  = inp + ' appearance-none cursor-pointer';
-const dInp = inp;  // date inputs use inline style={{ colorScheme:'dark' }}
-
-function Field({label,required,children}:{label:string;required?:boolean;children:React.ReactNode}){
-  return(
-    <div>
-      <label className="block text-[11px] text-slate-500 mb-1">{label}{required&&<span className="text-red-400 ml-0.5">*</span>}</label>
-      {children}
-    </div>
-  );
-}
+// dInp alias — date inputs use inline style={{ colorScheme:'dark' }}
+const dInp = inp;
+const Field = FormField;
 
 // ── Pay Slip Print Component ─────────────────────────────────────────
 // ── Slip HTML builder (used by both print popup and PDF download) ────
@@ -120,17 +113,6 @@ ${slips.map(s => buildSlipHtml(s)).join('')}
 }
 
 // ── jsPDF loader (from CDN, cached after first load) ─────────────────
-async function loadJsPDF(): Promise<any> {
-  if ((window as any).jspdf?.jsPDF) return (window as any).jspdf.jsPDF;
-  const load = (src: string) => new Promise<void>((res, rej) => {
-    const s = document.createElement('script');
-    s.src = src; s.onload = () => res(); s.onerror = () => rej(new Error('Failed: ' + src));
-    document.head.appendChild(s);
-  });
-  await load('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
-  await load('https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.3/jspdf.plugin.autotable.min.js');
-  return (window as any).jspdf.jsPDF;
-}
 
 // ── Generate real PDF for pay slips ──────────────────────────────────
 async function generateSlipPDF(slipsArr: any[], periodData?: any) {

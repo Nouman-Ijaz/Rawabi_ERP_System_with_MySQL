@@ -4,30 +4,14 @@ import { shipmentsApi, driversApi, vehiclesApi, customersApi, availableApi } fro
 import { useAuth } from '@/contexts/AuthContext';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
+import { SHIPMENT_STATUS, APPROVAL_STATUS, TIMELINE_HEX } from '@/lib/statusStyles';
+
+// Local aliases — existing JSX uses STATUS_BADGE / APPROVAL_BADGE / TIMELINE_DOT
+const STATUS_BADGE    = SHIPMENT_STATUS;
+const APPROVAL_BADGE  = APPROVAL_STATUS;
+const TIMELINE_DOT    = TIMELINE_HEX;
 
 // ── styles ────────────────────────────────────────────────────────
-const STATUS_BADGE: Record<string, string> = {
-  pending:    'bg-yellow-500/15 text-yellow-400 border-yellow-500/25',
-  confirmed:  'bg-blue-500/15 text-blue-400 border-blue-500/25',
-  picked_up:  'bg-purple-500/15 text-purple-400 border-purple-500/25',
-  in_transit: 'bg-indigo-500/15 text-indigo-400 border-indigo-500/25',
-  customs:    'bg-orange-500/15 text-orange-400 border-orange-500/25',
-  delivered:  'bg-emerald-500/15 text-emerald-400 border-emerald-500/25',
-  cancelled:  'bg-red-500/15 text-red-400 border-red-500/25',
-  returned:   'bg-slate-500/15 text-slate-400 border-slate-500/25',
-};
-const APPROVAL_BADGE: Record<string, string> = {
-  draft:            'bg-slate-500/15 text-slate-400',
-  pending_approval: 'bg-amber-500/15 text-amber-400',
-  approved:         'bg-emerald-500/15 text-emerald-400',
-  rejected:         'bg-red-500/15 text-red-400',
-};
-const TIMELINE_DOT: Record<string, string> = {
-  pending: '#f59e0b', confirmed: '#3b82f6', picked_up: '#8b5cf6',
-  in_transit: '#6366f1', customs: '#f97316', delivered: '#10b981',
-  cancelled: '#ef4444', returned: '#64748b',
-  order_created: '#3b82f6', vehicle_assigned: '#6366f1', rejected: '#ef4444',
-};
 
 const ALL_DOC_TYPES = [
   { value: 'pod',               label: 'Proof of Delivery (POD)',  roles: ['super_admin','admin','dispatcher','driver'] },

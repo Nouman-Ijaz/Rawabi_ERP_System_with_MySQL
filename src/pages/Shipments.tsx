@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { ROLES } from '@/lib/roles';
+import FormField from '@/components/FormField';
 // ── types ─────────────────────────────────────────────────────────
 interface Shipment {
   id: number;
@@ -67,14 +68,7 @@ const AssignIcon  = (p: React.SVGProps<SVGSVGElement>) => <svg {...p} fill="none
 const PackageIcon = (p: React.SVGProps<SVGSVGElement>) => <svg {...p} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>;
 
 // ── field helpers ──────────────────────────────────────────────────
-function Field({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
-  return (
-    <div className="space-y-1.5">
-      <Label className="text-xs text-slate-400">{label}{required && <span className="text-red-400 ml-0.5">*</span>}</Label>
-      {children}
-    </div>
-  );
-}
+const Field = FormField;
 
 function DarkInput(props: React.InputHTMLAttributes<HTMLInputElement>) {
   const isDate = props.type === 'date';

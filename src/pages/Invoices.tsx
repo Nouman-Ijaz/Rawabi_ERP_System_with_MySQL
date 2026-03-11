@@ -10,6 +10,7 @@ const addDays = (d: string, n: number) => {
   return dt.toISOString().split('T')[0];
 };
 
+import { loadJsPDF } from '@/lib/pdf';
 import { INVOICE_STATUS } from '@/lib/statusStyles';
 
 // ── sub-components ────────────────────────────────────────────────

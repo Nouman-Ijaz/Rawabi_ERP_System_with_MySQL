@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { settingsApi } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
+import { inp, sel } from '@/lib/cx';
 
 function Icon({name,className}:{name:string;className?:string}){
   const c=className||'w-4 h-4';
@@ -47,8 +48,6 @@ function Row({label,hint,children}:{label:string;hint?:string;children:React.Rea
   );
 }
 
-const inp = "w-full bg-[#0c0e13] border border-white/10 rounded-lg px-3 py-2 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/20 transition-colors";
-const sel = inp+" appearance-none cursor-pointer [color-scheme:dark]";
 
 export default function Settings(){
   const {hasPermission}=useAuth();

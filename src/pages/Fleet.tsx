@@ -13,16 +13,9 @@ const isExpiringSoon = (d: string) => {
 };
 const isExpired = (d: string) => !!d && new Date(d) < new Date();
 
-const VEHICLE_STATUS: Record<string,string> = {
-  active:'bg-emerald-500/15 text-emerald-400', maintenance:'bg-amber-500/15 text-amber-400',
-  retired:'bg-slate-500/15 text-slate-400', sold:'bg-blue-500/15 text-blue-400', accident:'bg-red-500/15 text-red-400',
-};
-const DRIVER_STATUS: Record<string,string> = {
-  available:'bg-emerald-500/15 text-emerald-400', on_trip:'bg-blue-500/15 text-blue-400',
-  on_leave:'bg-amber-500/15 text-amber-400', suspended:'bg-red-500/15 text-red-400', off_duty:'bg-slate-500/15 text-slate-400',
-};
+import { VEHICLE_STATUS, DRIVER_STATUS } from '@/lib/statusStyles';
 
-const fSel = 'px-3 py-2 text-xs bg-[#1a1d27] border border-white/5 rounded-lg text-white focus:outline-none focus:border-blue-500/40 cursor-pointer';
+import { fSel } from '@/lib/cx';
 
 function FIn({ label, required, ...props }: any) {
   return (

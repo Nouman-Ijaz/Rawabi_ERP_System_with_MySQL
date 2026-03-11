@@ -2,8 +2,9 @@ import { useEffect, useState, useCallback } from 'react';
 import { usersApi } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
-
 import { fmtDate, fmtDateTime } from '@/lib/format';
+import { inp, sel } from '@/lib/cx';
+import FormField from '@/components/FormField';
 const initials = (f: string, l: string) => `${f?.[0]||''}${l?.[0]||''}`.toUpperCase();
 
 const ROLES = ['super_admin','admin','office_admin','dispatcher','accountant','driver'];
@@ -40,16 +41,8 @@ function Icon({name,className}:{name:string;className?:string}){
   return M[name]||<span/>;
 }
 
-const inp = "w-full bg-[#0c0e13] border border-white/10 rounded-lg px-3 py-2 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/20 transition-colors";
-const sel = inp+" appearance-none cursor-pointer [color-scheme:dark]";
-function Fld({label,req,children}:{label:string;req?:boolean;children:React.ReactNode}){
-  return(
-    <div>
-      <label className="block text-[11px] font-medium text-slate-400 mb-1">{label}{req&&<span className="text-red-400 ml-0.5">*</span>}</label>
-      {children}
-    </div>
-  );
-}
+
+const Fld = FormField;
 
 export default function Users(){
   const {user:me,hasPermission}=useAuth();

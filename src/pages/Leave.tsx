@@ -6,14 +6,15 @@ import { leaveApi, employeesApi } from '@/lib/api';
 import { toast } from 'sonner';
 import { fmtDate, today } from '@/lib/format';
 import { ROLES } from '@/lib/roles';
+import { LEAVE_STATUS } from '@/lib/statusStyles';
+import { inp, sel } from '@/lib/cx';
+import FormField from '@/components/FormField';
 
-// ── Constants ──────────────────────────────────────────────────────
-const STATUS_STYLE: Record<string, string> = {
-  pending:   'bg-amber-500/15 text-amber-400',
-  approved:  'bg-emerald-500/15 text-emerald-400',
-  rejected:  'bg-red-500/15 text-red-400',
-  cancelled: 'bg-slate-500/15 text-slate-400',
-};
+// STATUS_STYLE is now LEAVE_STATUS imported from statusStyles.ts
+const STATUS_STYLE = LEAVE_STATUS;
+
+// Local alias so existing JSX using <Field> still works without a full rename pass
+const Field = FormField;
 
 // ── Sub-components ─────────────────────────────────────────────────
 function Icon({ name, className = 'w-4 h-4' }: { name: string; className?: string }) {
@@ -27,18 +28,6 @@ function Icon({ name, className = 'w-4 h-4' }: { name: string; className?: strin
     user:     <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>,
   };
   return icons[name] || <span />;
-}
-
-const inp = 'w-full px-3 py-2 text-xs bg-[#0f1117] border border-white/10 rounded-lg text-white focus:outline-none focus:border-blue-500/50 placeholder-slate-600';
-const sel = 'w-full px-3 py-2 text-xs bg-[#0f1117] border border-white/10 rounded-lg text-white focus:outline-none focus:border-blue-500/50 appearance-none';
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div>
-      <label className="block text-[11px] text-slate-500 mb-1">{label}</label>
-      {children}
-    </div>
-  );
 }
 
 function KPI({ label, value, sub, color = 'text-white' }: { label: string; value: any; sub?: string; color?: string }) {
@@ -134,10 +123,14 @@ export default function Leave() {
   }, [showCreate]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Load employees for balances tab
+  // employeesApi.getAll() returns { data: [...], pagination: {} } — parse data.data
   useEffect(() => {
     if (tab !== 'balances') return;
     employeesApi.getAll()
-      .then((data: any) => setEmpList(Array.isArray(data?.data ?? data) ? (data?.data ?? data) : []))
+      .then((data: any) => {
+        const list = data?.data ?? data;
+        setEmpList(Array.isArray(list) ? list : []);
+      })
       .catch(() => {});
   }, [tab]);
 
@@ -163,13 +156,10 @@ export default function Leave() {
         end_date:      form.end_date,
         reason:        form.reason,
       };
-      // Management picks an employee from the dropdown.
-      // '__self__' means the admin has no employee record yet — let backend resolve/create via user_id.
-      // Numeric employee_id means they picked someone from the list.
-      if (isManagement && form.employee_id && form.employee_id !== '__self__') {
+      // Management explicitly picks employee; others let backend resolve from their user_id
+      if (isManagement && form.employee_id) {
         payload.employee_id = Number(form.employee_id);
       }
-      // If __self__ or non-management: no employee_id sent → backend resolves via req.user.id
       const r = await leaveApi.createRequest(payload);
       toast.success(`Leave request ${r.request_number} submitted (${r.total_days} days)`);
       setShowCreate(false);
@@ -490,16 +480,10 @@ export default function Leave() {
                 <Field label="Employee *">
                   <select value={form.employee_id} onChange={e => setForm(p => ({ ...p, employee_id: e.target.value }))} className={sel}>
                     <option value="">— Select employee —</option>
-                    {/* For admin users: add a "Myself" option at the top if they're not in the
-                        employee list yet. The backend auto-creates their employee record on first submit. */}
-                    {user?.role === 'admin' && !employees.some(e => e.id === user?.employeeId) && (
-                      <option value="__self__">
-                        {user.firstName} {user.lastName} — You (first-time request)
-                      </option>
-                    )}
                     {employees
                       .filter(e => {
                         // super_admin cannot submit leave for themselves — they are exempt
+                        // (no one above them to approve; they handle their own schedule)
                         if (user?.role === 'super_admin' && e.id === user?.employeeId) return false;
                         return true;
                       })
@@ -511,7 +495,7 @@ export default function Leave() {
                       ))}
                   </select>
                   {/* Approval chain notes */}
-                  {user?.role === 'admin' && (form.employee_id === String(user?.employeeId) || form.employee_id === '__self__') && (
+                  {user?.role === 'admin' && form.employee_id === String(user?.employeeId) && (
                     <p className="text-[10px] text-amber-400/80 mt-1">Your request will require super admin approval.</p>
                   )}
                   {user?.role === 'super_admin' && (

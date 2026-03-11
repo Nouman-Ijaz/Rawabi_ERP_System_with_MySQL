@@ -3,20 +3,10 @@ import { useAuth } from '@/contexts/AuthContext';
 import { financeApi } from '@/lib/api';
 import { toast } from 'sonner';
 
+import { loadJsPDF } from '@/lib/pdf';
 import { fmtSAR, fmtDate, today } from '@/lib/format';
 
 // ── jsPDF CDN loader ───────────────────────────────────────────────
-async function loadJsPDF(): Promise<any> {
-  if ((window as any).jspdf?.jsPDF) return (window as any).jspdf.jsPDF;
-  const load = (src: string) => new Promise<void>((res, rej) => {
-    const s = document.createElement('script');
-    s.src = src; s.onload = () => res(); s.onerror = () => rej(new Error('CDN load failed: ' + src));
-    document.head.appendChild(s);
-  });
-  await load('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
-  await load('https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.3/jspdf.plugin.autotable.min.js');
-  return (window as any).jspdf.jsPDF;
-}
 
 // ── Build a single payment page in an existing doc ────────────────
 function buildPaymentPage(doc: any, p: any, isFirstPage: boolean) {

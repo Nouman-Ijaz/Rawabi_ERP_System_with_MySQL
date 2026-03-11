@@ -3,8 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { employeesApi } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
-
 import { fmtDate, fmtSAR } from '@/lib/format';
+import { inp, sel } from '@/lib/cx';
+import FormField from '@/components/FormField';
+import { EMPLOYEE_STATUS } from '@/lib/statusStyles';
 const initials = (f: string, l: string) => `${f?.[0]||''}${l?.[0]||''}`.toUpperCase();
 const docSt    = (d: number|null): 'expired'|'soon'|'ok'|'none' => {
   if (d===null||d===undefined) return 'none';
@@ -13,7 +15,6 @@ const docSt    = (d: number|null): 'expired'|'soon'|'ok'|'none' => {
   return 'ok';
 };
 
-import { EMPLOYEE_STATUS } from '@/lib/statusStyles';
 const DEPT_CLS: Record<string,string> = {
   operations:'bg-blue-500/15 text-blue-400',  logistics:'bg-cyan-500/15 text-cyan-400',
   finance:'bg-emerald-500/15 text-emerald-400', hr:'bg-purple-500/15 text-purple-400',
@@ -73,14 +74,13 @@ function Icon({name,className}:{name:string;className?:string}){
   return M[name]||<span/>;
 }
 
-const inp = "w-full bg-[#0c0e13] border border-white/10 rounded-lg px-3 py-2 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/20 transition-colors";
-const sel = inp+" appearance-none cursor-pointer";
-
+// Fld wraps FormField with an optional span class for grid layouts
 function Fld({label,req,span,children}:{label:string;req?:boolean;span?:string;children:React.ReactNode}){
   return(
     <div className={span}>
-      <label className="block text-[11px] font-medium text-slate-400 mb-1">{label}{req&&<span className="text-red-400 ml-0.5">*</span>}</label>
-      {children}
+      <FormField label={label} required={req}>
+        {children}
+      </FormField>
     </div>
   );
 }
