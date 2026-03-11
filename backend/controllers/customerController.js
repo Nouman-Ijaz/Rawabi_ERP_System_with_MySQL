@@ -1,10 +1,6 @@
-import { asyncHandler } from '../middleware/asyncHandler.js';
+import { asyncHandler, httpError } from '../middleware/asyncHandler.js';
 import { query, get, run } from '../database/db.js';
-
-// Generate customer code
-function generateCustomerCode() {
-    return 'CUST-' + Date.now().toString(36).toUpperCase().slice(-6);
-}
+import { generateCode, logActivity } from '../utils/helpers.js';
 
 // Get all customers with optional filters
 export const getAllCustomers = asyncHandler(async (req, res) => {
@@ -160,7 +156,7 @@ export const createCustomer = asyncHandler(async (req, res) => {
             return res.status(400).json({ error: 'Email already exists' });
         }
 
-        const customerCode = generateCustomerCode();
+        const customerCode = generateCode('CUST');
 
         const result = await run(
             `INSERT INTO customers (
@@ -175,11 +171,7 @@ export const createCustomer = asyncHandler(async (req, res) => {
             ]
         );
 
-        // Log activity
-        await run(
-            'INSERT INTO activity_logs (user_id, action, entity_type, entity_id, new_values) VALUES (?, ?, ?, ?, ?)',
-            [req.user.id, 'CREATE_CUSTOMER', 'customer', result.id, JSON.stringify({ companyName, contactPerson, email })]
-        );
+        await logActivity(req.user.id, 'CREATE_CUSTOMER', 'customer', result.id, { companyName, contactPerson, email });
 
         res.status(201).json({
             id: result.id,
@@ -223,11 +215,7 @@ export const updateCustomer = asyncHandler(async (req, res) => {
             ]
         );
 
-        // Log activity
-        await run(
-            'INSERT INTO activity_logs (user_id, action, entity_type, entity_id, old_values, new_values) VALUES (?, ?, ?, ?, ?, ?)',
-            [req.user.id, 'UPDATE_CUSTOMER', 'customer', id, JSON.stringify(customer), JSON.stringify(updates)]
-        );
+        await logActivity(req.user.id, 'UPDATE_CUSTOMER', 'customer', id, updates, customer);
 
         res.json({ message: 'Customer updated successfully' });
 });
@@ -249,11 +237,7 @@ export const deleteCustomer = asyncHandler(async (req, res) => {
 
         await run('DELETE FROM customers WHERE id = ?', [id]);
 
-        // Log activity
-        await run(
-            'INSERT INTO activity_logs (user_id, action, entity_type, entity_id, old_values) VALUES (?, ?, ?, ?, ?)',
-            [req.user.id, 'DELETE_CUSTOMER', 'customer', id, JSON.stringify(customer)]
-        );
+        await logActivity(req.user.id, 'DELETE_CUSTOMER', 'customer', id, null, customer);
 
         res.json({ message: 'Customer deleted successfully' });
 });

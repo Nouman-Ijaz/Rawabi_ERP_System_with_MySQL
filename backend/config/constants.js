@@ -40,3 +40,15 @@ export const PAGINATION = {
 
 // ── JWT ────────────────────────────────────────────────────────────
 export const JWT_EXPIRY = '24h';
+
+// ── Role groups (backend) ──────────────────────────────────────────
+// These mirror the ROLES object in src/lib/roles.ts.
+// Used by controllers that need role checks without importing routes.
+export const ROLE_GROUPS = {
+    SUPER_ADMIN:  ['super_admin'],
+    ADMIN_UP:     ['super_admin', 'admin'],
+    MANAGEMENT:   ['super_admin', 'admin', 'office_admin'],
+    FINANCE:      ['super_admin', 'admin', 'accountant'],
+    OPERATIONS:   ['super_admin', 'admin', 'dispatcher'],
+    FLEET_VIEW:   ['super_admin', 'admin', 'office_admin', 'dispatcher'],
+};

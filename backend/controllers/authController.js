@@ -1,7 +1,8 @@
-import { asyncHandler } from '../middleware/asyncHandler.js';
+import { asyncHandler, httpError } from '../middleware/asyncHandler.js';
 import bcrypt from 'bcryptjs';
 import { query, get, run } from '../database/db.js';
 import { generateToken } from '../middleware/auth.js';
+import { logActivity } from '../utils/helpers.js';
 
 // ============================================
 // LOGIN
@@ -28,6 +29,7 @@ export const login = asyncHandler(async (req, res) => {
 
         await run('UPDATE users SET last_login = NOW() WHERE id = ?', [user.id]);
 
+        // Note: LOGIN logs use ip_address column, not new_values — calling run directly is acceptable here
         await run(
             'INSERT INTO activity_logs (user_id, action, entity_type, ip_address) VALUES (?, ?, ?, ?)',
             [user.id, 'LOGIN', 'user', req.ip]

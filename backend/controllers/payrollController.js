@@ -1,6 +1,7 @@
-import { asyncHandler } from '../middleware/asyncHandler.js';
+import { asyncHandler, httpError } from '../middleware/asyncHandler.js';
 import { query, get, run } from '../database/db.js';
 import { GOSI, PAYROLL } from '../config/constants.js';
+import { logActivity } from '../utils/helpers.js';
 
 // ── GET ALL PERIODS ──────────────────────────────────────────────────
 export const getAllPeriods = asyncHandler(async (req, res) => {
@@ -206,7 +207,7 @@ export const approvePeriod = asyncHandler(async (req, res) => {
 
         await run('UPDATE payroll_periods SET status=?,approved_by=?,approved_at=NOW() WHERE id=?', ['approved', req.user.id, id]);
         await run('UPDATE payroll_slips SET status=? WHERE payroll_period_id=? AND status=?', ['approved', id, 'draft']);
-        await run('INSERT INTO activity_logs (user_id,action,entity_type,entity_id) VALUES (?,?,?,?)', [req.user.id,'APPROVE_PAYROLL','payroll_period',id]);
+        await logActivity(req.user.id, 'APPROVE_PAYROLL', 'payroll_period', id);
         res.json({ message: 'Payroll approved' });
 });
 
@@ -236,7 +237,7 @@ export const markPaid = asyncHandler(async (req, res) => {
                            WHERE employee_id=? AND status='active' AND remaining_balance<=0`, [slip.employee_id]);
             }
         }
-        await run('INSERT INTO activity_logs (user_id,action,entity_type,entity_id) VALUES (?,?,?,?)', [req.user.id,'MARK_PAYROLL_PAID','payroll_period',id]);
+        await logActivity(req.user.id, 'MARK_PAYROLL_PAID', 'payroll_period', id);
         res.json({ message: 'Payroll marked as paid' });
 });
 
@@ -286,7 +287,7 @@ export const upsertSalaryStructure = asyncHandler(async (req, res) => {
         await run('UPDATE employees SET salary=? WHERE id=?', [parseFloat(basicSalary), employeeId]);
 
         const latest = await get('SELECT * FROM salary_structures WHERE employee_id=? AND is_active=1', [employeeId]);
-        await run('INSERT INTO activity_logs (user_id,action,entity_type,entity_id) VALUES (?,?,?,?)', [req.user.id,'UPDATE_SALARY_STRUCTURE','employee',employeeId]);
+        await logActivity(req.user.id, 'UPDATE_SALARY_STRUCTURE', 'employee', employeeId);
         res.json(latest);
 });
 

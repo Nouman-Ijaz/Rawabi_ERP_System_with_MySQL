@@ -1,6 +1,9 @@
-import { asyncHandler } from '../middleware/asyncHandler.js';
+import { asyncHandler, httpError } from '../middleware/asyncHandler.js';
 import { query, get, run } from '../database/db.js';
+import { logActivity } from '../utils/helpers.js';
 
+// Finance document numbers use date-stamped format (INV-2603-XXXXX) so we keep
+// local generators here rather than using generateCode() which is timestamp-only.
 function generateInvoiceNumber() {
     const d = new Date();
     return `INV-${d.getFullYear().toString().slice(-2)}${String(d.getMonth()+1).padStart(2,'0')}-${Math.floor(10000+Math.random()*90000)}`;
@@ -100,10 +103,7 @@ export const createInvoice = asyncHandler(async (req, res) => {
             );
         }
 
-        await run(
-            'INSERT INTO activity_logs (user_id, action, entity_type, entity_id, new_values) VALUES (?, ?, ?, ?, ?)',
-            [req.user.id, 'CREATE_INVOICE', 'invoice', result.id, JSON.stringify({ invoiceNumber, customerId, total })]
-        );
+        await logActivity(req.user.id, 'CREATE_INVOICE', 'invoice', result.id, { invoiceNumber, customerId, total });
 
         res.status(201).json({ id: result.id, invoiceNumber, message: 'Invoice created successfully' });
 });
@@ -167,10 +167,7 @@ export const createPayment = asyncHandler(async (req, res) => {
             }
         }
 
-        await run(
-            'INSERT INTO activity_logs (user_id, action, entity_type, entity_id, new_values) VALUES (?, ?, ?, ?, ?)',
-            [req.user.id, 'CREATE_PAYMENT', 'payment', result.id, JSON.stringify({ paymentNumber, amount, paymentMethod })]
-        );
+        await logActivity(req.user.id, 'CREATE_PAYMENT', 'payment', result.id, { paymentNumber, amount, paymentMethod });
 
         res.status(201).json({ id: result.id, paymentNumber, message: 'Payment recorded successfully' });
 });
@@ -222,10 +219,7 @@ export const createExpense = asyncHandler(async (req, res) => {
              vendorName ?? null, receiptNumber ?? null, paymentMethod ?? null, req.user.id]
         );
 
-        await run(
-            'INSERT INTO activity_logs (user_id, action, entity_type, entity_id, new_values) VALUES (?, ?, ?, ?, ?)',
-            [req.user.id, 'CREATE_EXPENSE', 'expense', result.id, JSON.stringify({ expenseNumber, category, amount })]
-        );
+        await logActivity(req.user.id, 'CREATE_EXPENSE', 'expense', result.id, { expenseNumber, category, amount });
 
         res.status(201).json({ id: result.id, expenseNumber, message: 'Expense created successfully' });
 });
@@ -365,10 +359,6 @@ export const updateSettings = asyncHandler(async (req, res) => {
                 [value, key]
             );
         }
-        // Log activity
-        await run(
-            'INSERT INTO activity_logs (user_id, action, entity_type, new_values) VALUES (?, ?, ?, ?)',
-            [req.user.id, 'UPDATE_SETTINGS', 'settings', JSON.stringify(updates)]
-        );
+        await logActivity(req.user.id, 'UPDATE_SETTINGS', 'settings', 0, updates);
         res.json({ message: 'Settings updated successfully' });
 });

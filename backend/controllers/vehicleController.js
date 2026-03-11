@@ -1,11 +1,7 @@
-import { asyncHandler } from '../middleware/asyncHandler.js';
+import { asyncHandler, httpError } from '../middleware/asyncHandler.js';
 import { query, get, run } from '../database/db.js';
 import { getPublicUrl } from '../config/multer.js';
-
-// Generate vehicle code
-function generateVehicleCode() {
-    return 'VEH-' + Date.now().toString(36).toUpperCase().slice(-6);
-}
+import { generateCode, logActivity } from '../utils/helpers.js';
 
 // Get all vehicles with optional filters
 export const getAllVehicles = asyncHandler(async (req, res) => {
@@ -186,7 +182,7 @@ export const createVehicle = asyncHandler(async (req, res) => {
             return res.status(400).json({ error: 'Plate number already exists' });
         }
 
-        const vehicleCode = generateVehicleCode();
+        const vehicleCode = generateCode('VEH');
 
         const result = await run(
             `INSERT INTO vehicles (
@@ -199,11 +195,7 @@ export const createVehicle = asyncHandler(async (req, res) => {
              insuranceExpiry, notes]
         );
 
-        // Log activity
-        await run(
-            'INSERT INTO activity_logs (user_id, action, entity_type, entity_id, new_values) VALUES (?, ?, ?, ?, ?)',
-            [req.user.id, 'CREATE_VEHICLE', 'vehicle', result.id, JSON.stringify({ plateNumber, vehicleType, brand })]
-        );
+        await logActivity(req.user.id, 'CREATE_VEHICLE', 'vehicle', result.id, { plateNumber, vehicleType, brand });
 
         res.status(201).json({
             id: result.id,
@@ -248,11 +240,7 @@ export const updateVehicle = asyncHandler(async (req, res) => {
             ]
         );
 
-        // Log activity
-        await run(
-            'INSERT INTO activity_logs (user_id, action, entity_type, entity_id, old_values, new_values) VALUES (?, ?, ?, ?, ?, ?)',
-            [req.user.id, 'UPDATE_VEHICLE', 'vehicle', id, JSON.stringify(vehicle), JSON.stringify(updates)]
-        );
+        await logActivity(req.user.id, 'UPDATE_VEHICLE', 'vehicle', id, updates, vehicle);
 
         res.json({ message: 'Vehicle updated successfully' });
 });
@@ -277,11 +265,7 @@ export const deleteVehicle = asyncHandler(async (req, res) => {
 
         await run('DELETE FROM vehicles WHERE id = ?', [id]);
 
-        // Log activity
-        await run(
-            'INSERT INTO activity_logs (user_id, action, entity_type, entity_id, old_values) VALUES (?, ?, ?, ?, ?)',
-            [req.user.id, 'DELETE_VEHICLE', 'vehicle', id, JSON.stringify(vehicle)]
-        );
+        await logActivity(req.user.id, 'DELETE_VEHICLE', 'vehicle', id, null, vehicle);
 
         res.json({ message: 'Vehicle deleted successfully' });
 });
@@ -308,11 +292,7 @@ export const assignDriver = asyncHandler(async (req, res) => {
         // Update driver status
         await run('UPDATE drivers SET status = "on_trip" WHERE id = ?', [driverId]);
 
-        // Log activity
-        await run(
-            'INSERT INTO activity_logs (user_id, action, entity_type, entity_id, new_values) VALUES (?, ?, ?, ?, ?)',
-            [req.user.id, 'ASSIGN_DRIVER', 'vehicle', id, JSON.stringify({ driverId, isPrimary })]
-        );
+        await logActivity(req.user.id, 'ASSIGN_DRIVER', 'vehicle', id, { driverId, isPrimary });
 
         res.json({ message: 'Driver assigned successfully' });
 });
@@ -330,11 +310,7 @@ export const unassignDriver = asyncHandler(async (req, res) => {
         // Update driver status
         await run('UPDATE drivers SET status = "available" WHERE id = ?', [driverId]);
 
-        // Log activity
-        await run(
-            'INSERT INTO activity_logs (user_id, action, entity_type, entity_id, new_values) VALUES (?, ?, ?, ?, ?)',
-            [req.user.id, 'UNASSIGN_DRIVER', 'vehicle', id, JSON.stringify({ driverId })]
-        );
+        await logActivity(req.user.id, 'UNASSIGN_DRIVER', 'vehicle', id, { driverId });
 
         res.json({ message: 'Driver unassigned successfully' });
 });

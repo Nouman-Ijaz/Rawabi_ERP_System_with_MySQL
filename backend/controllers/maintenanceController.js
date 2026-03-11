@@ -1,5 +1,6 @@
-import { asyncHandler } from '../middleware/asyncHandler.js';
+import { asyncHandler, httpError } from '../middleware/asyncHandler.js';
 import { query, get, run } from '../database/db.js';
+import { logActivity } from '../utils/helpers.js';
 
 // Get all maintenance records
 export const getAllMaintenance = asyncHandler(async (req, res) => {
@@ -92,11 +93,7 @@ export const createMaintenance = asyncHandler(async (req, res) => {
             [vehicleId]
         );
 
-        // Log activity
-        await run(
-            'INSERT INTO activity_logs (user_id, action, entity_type, entity_id, new_values) VALUES (?, ?, ?, ?, ?)',
-            [req.user.id, 'CREATE_MAINTENANCE', 'maintenance', result.id, JSON.stringify({ vehicleId, maintenanceType, serviceDate })]
-        );
+        await logActivity(req.user.id, 'CREATE_MAINTENANCE', 'maintenance', result.id, { vehicleId, maintenanceType, serviceDate });
 
         res.status(201).json({
             id: result.id,
@@ -144,11 +141,7 @@ export const updateMaintenance = asyncHandler(async (req, res) => {
             );
         }
 
-        // Log activity
-        await run(
-            'INSERT INTO activity_logs (user_id, action, entity_type, entity_id, old_values, new_values) VALUES (?, ?, ?, ?, ?, ?)',
-            [req.user.id, 'UPDATE_MAINTENANCE', 'maintenance', id, JSON.stringify(record), JSON.stringify(updates)]
-        );
+        await logActivity(req.user.id, 'UPDATE_MAINTENANCE', 'maintenance', id, updates, record);
 
         res.json({ message: 'Maintenance record updated successfully' });
 });
@@ -164,11 +157,7 @@ export const deleteMaintenance = asyncHandler(async (req, res) => {
 
         await run('DELETE FROM maintenance_records WHERE id = ?', [id]);
 
-        // Log activity
-        await run(
-            'INSERT INTO activity_logs (user_id, action, entity_type, entity_id, old_values) VALUES (?, ?, ?, ?, ?)',
-            [req.user.id, 'DELETE_MAINTENANCE', 'maintenance', id, JSON.stringify(record)]
-        );
+        await logActivity(req.user.id, 'DELETE_MAINTENANCE', 'maintenance', id, null, record);
 
         res.json({ message: 'Maintenance record deleted successfully' });
 });

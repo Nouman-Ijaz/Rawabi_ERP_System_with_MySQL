@@ -4,9 +4,10 @@
 // ============================================================
 import { query, get, run } from '../database/db.js';
 import { asyncHandler, httpError } from '../middleware/asyncHandler.js';
+import { ROLE_GROUPS } from '../config/constants.js';
 
-const MGMT  = ['super_admin', 'admin', 'office_admin'];
-const ADMIN = ['super_admin', 'admin'];
+const MGMT  = ROLE_GROUPS.MANAGEMENT;
+const ADMIN = ROLE_GROUPS.ADMIN_UP;
 
 // ── Helper: generate request number LVR-YYMM-NNN ────────────────
 async function nextRequestNumber() {
@@ -68,33 +69,10 @@ export const getMyBalances = asyncHandler(async (req, res) => {
     const year = req.query.year || new Date().getFullYear();
 
     // Resolve employee record for the logged-in user
-    let emp = await get('SELECT id FROM employees WHERE user_id = ?', [req.user.id]);
+    const emp = await get('SELECT id FROM employees WHERE user_id = ?', [req.user.id]);
     if (!emp) {
-        // Management users may not have an employee record yet.
-        // Only auto-create for management/admin roles — drivers/accountants who have no
-        // employee record have a genuine data problem that should surface clearly.
-        if (MGMT.includes(req.user.role) || ADMIN.includes(req.user.role)) {
-            const userRow = await get(
-                'SELECT first_name, last_name, email FROM users WHERE id = ?',
-                [req.user.id]
-            );
-            if (userRow) {
-                const code = 'EMP-' + Date.now().toString(36).toUpperCase().slice(-6);
-                const created = await run(
-                    `INSERT INTO employees
-                     (employee_code, first_name, last_name, email, department, position,
-                      hire_date, status, employment_type, contract_type, work_shift,
-                      annual_leave_entitlement, user_id)
-                     VALUES (?, ?, ?, ?, 'Management', ?, CURDATE(), 'active',
-                             'full_time', 'permanent', 'morning', 21, ?)`,
-                    [code, userRow.first_name, userRow.last_name, userRow.email,
-                     req.user.role.replace('_', ' '), req.user.id]
-                );
-                emp = { id: created.id };
-            }
-        }
-        // If still no employee (non-management with no record), return empty list
-        if (!emp) return res.json([]);
+        // Return empty array — cleaner than a 404 so the UI can show an empty state
+        return res.json([]);
     }
     const employeeId = emp.id;
 
@@ -200,30 +178,9 @@ export const createRequest = asyncHandler(async (req, res) => {
 
     // If employee_id not supplied (non-management submitting their own),
     // look it up from the employees table using the logged-in user_id.
-    // For management users who have no employee record yet, auto-create a minimal one
-    // (all staff — including admins — are employees; the user/role distinction is a system-access level).
     if (!employee_id) {
-        let emp = await get('SELECT id FROM employees WHERE user_id = ?', [req.user.id]);
-        if (!emp) {
-            // Auto-create a minimal employee record so management can use leave
-            const userRow = await get(
-                'SELECT id, first_name, last_name, email FROM users WHERE id = ?',
-                [req.user.id]
-            );
-            if (!userRow) throw httpError(400, 'User record not found');
-            const code = 'EMP-' + Date.now().toString(36).toUpperCase().slice(-6);
-            const result = await run(
-                `INSERT INTO employees
-                 (employee_code, first_name, last_name, email, department, position,
-                  hire_date, status, employment_type, contract_type, work_shift,
-                  annual_leave_entitlement, user_id)
-                 VALUES (?, ?, ?, ?, 'Management', ?, CURDATE(), 'active',
-                         'full_time', 'permanent', 'morning', 21, ?)`,
-                [code, userRow.first_name, userRow.last_name, userRow.email,
-                 req.user.role.replace('_', ' '), req.user.id]
-            );
-            emp = { id: result.id };
-        }
+        const emp = await get('SELECT id FROM employees WHERE user_id = ?', [req.user.id]);
+        if (!emp) throw httpError(400, 'No employee record linked to your account');
         employee_id = emp.id;
     }
 

@@ -401,16 +401,15 @@ router.put('/payroll/loans/:id/status',          authorize(PAY_EDIT), payrollCon
 // ============================================
 // LEAVE MANAGEMENT
 // ============================================
-const LEAVE_VIEW = ['super_admin', 'admin', 'office_admin'];
-router.get('/leave/summary',                authorize(LEAVE_VIEW), leaveController.getLeaveSummary);
+router.get('/leave/summary',                authorize(MANAGEMENT), leaveController.getLeaveSummary);
 router.get('/leave/types',                  authorize([]),          leaveController.getLeaveTypes);
 router.get('/leave/balances/me',            authorize([]),          leaveController.getMyBalances);
 router.get('/leave/balances/:employeeId',   authorize([]),          leaveController.getBalances);
-router.put('/leave/balances/:id',           authorize(LEAVE_VIEW), leaveController.updateBalance);
+router.put('/leave/balances/:id',           authorize(MANAGEMENT), leaveController.updateBalance);
 router.get('/leave/requests',               authorize([]),          leaveController.getRequests);
 router.get('/leave/requests/:id',           authorize([]),          leaveController.getRequestById);
 router.post('/leave/requests',              authorize([]),          leaveController.createRequest);
-router.put('/leave/requests/:id/review',    authorize(LEAVE_VIEW), leaveController.reviewRequest);
+router.put('/leave/requests/:id/review',    authorize(MANAGEMENT), leaveController.reviewRequest);
 router.put('/leave/requests/:id/cancel',    authorize([]),          leaveController.cancelRequest);
 
 // ============================================

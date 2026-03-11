@@ -1,8 +1,7 @@
-import { asyncHandler } from '../middleware/asyncHandler.js';
+import { asyncHandler, httpError } from '../middleware/asyncHandler.js';
 import bcrypt from 'bcryptjs';
 import { query, get, run } from '../database/db.js';
-
-const n = (v) => (v !== undefined && v !== '' && v !== null) ? v : null;
+import { n, logActivity } from '../utils/helpers.js';
 
 // ── GET ALL ────────────────────────────────────────────────────────────
 export const getAllUsers = asyncHandler(async (req, res) => {
@@ -99,11 +98,7 @@ export const createUser = asyncHandler(async (req, res) => {
             [email.toLowerCase(), hashedPassword, firstName, lastName, role, n(department), n(phone)]
         );
 
-        await run(
-            'INSERT INTO activity_logs (user_id, action, entity_type, entity_id, new_values) VALUES (?,?,?,?,?)',
-            [req.user.id, 'CREATE_USER', 'user', result.id,
-             JSON.stringify({ email, firstName, lastName, role })]
-        );
+        await logActivity(req.user.id, 'CREATE_USER', 'user', result.id, { email, firstName, lastName, role });
         res.status(201).json({ id: result.id, message: 'User created successfully' });
 });
 
@@ -130,11 +125,7 @@ export const updateUser = asyncHandler(async (req, res) => {
             [n(firstName), n(lastName), n(role), n(department), n(phone), activeValue, id]
         );
 
-        await run(
-            'INSERT INTO activity_logs (user_id, action, entity_type, entity_id, old_values, new_values) VALUES (?,?,?,?,?,?)',
-            [req.user.id, 'UPDATE_USER', 'user', id,
-             JSON.stringify(user), JSON.stringify({ firstName, lastName, role, isActive })]
-        );
+        await logActivity(req.user.id, 'UPDATE_USER', 'user', id, { firstName, lastName, role, isActive }, user);
         res.json({ message: 'User updated successfully' });
 });
 
@@ -145,10 +136,7 @@ export const deleteUser = asyncHandler(async (req, res) => {
         if (!user) return res.status(404).json({ error: 'User not found' });
 
         await run('DELETE FROM users WHERE id = ?', [id]);
-        await run(
-            'INSERT INTO activity_logs (user_id, action, entity_type, entity_id, old_values) VALUES (?,?,?,?,?)',
-            [req.user.id, 'DELETE_USER', 'user', id, JSON.stringify(user)]
-        );
+        await logActivity(req.user.id, 'DELETE_USER', 'user', id, null, user);
         res.json({ message: 'User deleted successfully' });
 });
 
@@ -168,11 +156,7 @@ export const resetPassword = asyncHandler(async (req, res) => {
         const hashedPassword = await bcrypt.hash(newPassword, 12);
 
         await run('UPDATE users SET password = ? WHERE id = ?', [hashedPassword, id]);
-
-        await run(
-            'INSERT INTO activity_logs (user_id, action, entity_type, entity_id) VALUES (?,?,?,?)',
-            [req.user.id, 'RESET_PASSWORD', 'user', id]
-        );
+        await logActivity(req.user.id, 'RESET_PASSWORD', 'user', id);
         res.json({ message: 'Password reset successfully' });
 });
 
@@ -204,10 +188,6 @@ export const changeOwnPassword = asyncHandler(async (req, res) => {
 
         const hashed = await bcrypt.hash(newPassword, 12);
         await run('UPDATE users SET password = ? WHERE id = ?', [hashed, userId]);
-
-        await run(
-            'INSERT INTO activity_logs (user_id, action, entity_type, entity_id) VALUES (?,?,?,?)',
-            [userId, 'CHANGE_OWN_PASSWORD', 'user', userId]
-        );
+        await logActivity(userId, 'CHANGE_OWN_PASSWORD', 'user', userId);
         res.json({ message: 'Password changed successfully' });
 });

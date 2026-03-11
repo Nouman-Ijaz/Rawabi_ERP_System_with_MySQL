@@ -1,6 +1,8 @@
-import { asyncHandler } from '../middleware/asyncHandler.js';
+import { asyncHandler, httpError } from '../middleware/asyncHandler.js';
 import { query, get, run } from '../database/db.js';
+import { logActivity } from '../utils/helpers.js';
 
+// Shipment/tracking numbers use date-stamped format so we keep local generators.
 function generateShipmentNumber() {
     const d = new Date();
     const yy = d.getFullYear().toString().slice(-2);
@@ -214,11 +216,8 @@ export const createShipment = asyncHandler(async (req, res) => {
             [result.id, 'ORDER_CREATED', 'Shipment order created', req.user.id]
         );
 
-        await run(
-            'INSERT INTO activity_logs (user_id, action, entity_type, entity_id, new_values) VALUES (?, ?, ?, ?, ?)',
-            [req.user.id, 'CREATE_SHIPMENT', 'shipment', result.id,
-             JSON.stringify({ shipmentNumber, customerId, cargoType })]
-        );
+        await logActivity(req.user.id, 'CREATE_SHIPMENT', 'shipment', result.id,
+            { shipmentNumber, customerId, cargoType });
 
         res.status(201).json({
             id: result.id,
@@ -282,10 +281,7 @@ export const updateShipment = asyncHandler(async (req, res) => {
             ]
         );
 
-        await run(
-            'INSERT INTO activity_logs (user_id, action, entity_type, entity_id, old_values, new_values) VALUES (?, ?, ?, ?, ?, ?)',
-            [req.user.id, 'UPDATE_SHIPMENT', 'shipment', id, JSON.stringify(shipment), JSON.stringify(updates)]
-        );
+        await logActivity(req.user.id, 'UPDATE_SHIPMENT', 'shipment', id, updates, shipment);
 
         res.json({ message: 'Shipment updated successfully' });
 });
@@ -342,10 +338,7 @@ export const updateStatus = asyncHandler(async (req, res) => {
             }
         }
 
-        await run(
-            'INSERT INTO activity_logs (user_id, action, entity_type, entity_id, new_values) VALUES (?, ?, ?, ?, ?)',
-            [req.user.id, 'UPDATE_SHIPMENT_STATUS', 'shipment', id, JSON.stringify({ status, location })]
-        );
+        await logActivity(req.user.id, 'UPDATE_SHIPMENT_STATUS', 'shipment', id, { status, location });
 
         res.json({ message: 'Shipment status updated successfully' });
 });
@@ -411,10 +404,7 @@ export const assignVehicleAndDriver = asyncHandler(async (req, res) => {
             [id, 'VEHICLE_ASSIGNED', 'Vehicle and driver assigned', req.user.id]
         );
 
-        await run(
-            'INSERT INTO activity_logs (user_id, action, entity_type, entity_id, new_values) VALUES (?, ?, ?, ?, ?)',
-            [req.user.id, 'ASSIGN_VEHICLE_DRIVER', 'shipment', id, JSON.stringify({ vehicleId, driverId })]
-        );
+        await logActivity(req.user.id, 'ASSIGN_VEHICLE_DRIVER', 'shipment', id, { vehicleId, driverId });
 
         res.json({ message: 'Vehicle and driver assigned successfully' });
 });
@@ -434,10 +424,7 @@ export const deleteShipment = asyncHandler(async (req, res) => {
 
         await run('DELETE FROM shipments WHERE id = ?', [id]);
 
-        await run(
-            'INSERT INTO activity_logs (user_id, action, entity_type, entity_id, old_values) VALUES (?, ?, ?, ?, ?)',
-            [req.user.id, 'DELETE_SHIPMENT', 'shipment', id, JSON.stringify(shipment)]
-        );
+        await logActivity(req.user.id, 'DELETE_SHIPMENT', 'shipment', id, null, shipment);
 
         res.json({ message: 'Shipment deleted successfully' });
 });
@@ -633,11 +620,8 @@ export const uploadDocument = asyncHandler(async (req, res) => {
             [id, docType, docName, relativePath, req.user.id, notes ?? null]
         );
 
-        await run(
-            'INSERT INTO activity_logs (user_id, action, entity_type, entity_id, new_values) VALUES (?, ?, ?, ?, ?)',
-            [req.user.id, 'UPLOAD_DOCUMENT', 'shipment', id,
-             JSON.stringify({ docType, docName, relativePath })]
-        );
+        await logActivity(req.user.id, 'UPLOAD_DOCUMENT', 'shipment', id,
+            { docType, docName, relativePath });
 
         res.status(201).json({
             id: result.id,

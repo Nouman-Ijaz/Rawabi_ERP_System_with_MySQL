@@ -1,12 +1,7 @@
-import { asyncHandler } from '../middleware/asyncHandler.js';
+import { asyncHandler, httpError } from '../middleware/asyncHandler.js';
 import { query, get, run, beginTransaction, commit, rollback } from '../database/db.js';
 import { getPublicUrl } from '../config/multer.js';
-
-const n = (v) => (v !== undefined && v !== '' && v !== null) ? v : null;
-
-function generateEmployeeCode() {
-    return 'EMP-' + Date.now().toString(36).toUpperCase().slice(-6);
-}
+import { n, generateCode, logActivity } from '../utils/helpers.js';
 
 // ============================================
 // GET ALL DRIVERS
@@ -150,7 +145,7 @@ export const createDriver = asyncHandler(async (req, res) => {
             yearsOfExperience, department = 'Operations',
         } = req.body;
 
-        const employeeCode = generateEmployeeCode();
+        const employeeCode = generateCode('EMP');
         const photoUrl = req.file ? getPublicUrl(req.file.filename, 'drivers') : null;
 
         await beginTransaction();
@@ -178,11 +173,8 @@ export const createDriver = asyncHandler(async (req, res) => {
 
             await commit();
 
-            await run(
-                'INSERT INTO activity_logs (user_id, action, entity_type, entity_id, new_values) VALUES (?, ?, ?, ?, ?)',
-                [req.user.id, 'CREATE_DRIVER', 'driver', driverResult.id,
-                 JSON.stringify({ firstName, lastName, licenseNumber })]
-            );
+            await logActivity(req.user.id, 'CREATE_DRIVER', 'driver', driverResult.id,
+                { firstName, lastName, licenseNumber });
 
             res.status(201).json({
                 id: driverResult.id,
@@ -247,11 +239,8 @@ export const updateDriver = asyncHandler(async (req, res) => {
              n(updates.status), n(updates.rating), photoUrl, id]
         );
 
-        await run(
-            'INSERT INTO activity_logs (user_id, action, entity_type, entity_id, old_values, new_values) VALUES (?, ?, ?, ?, ?, ?)',
-            [req.user.id, 'UPDATE_DRIVER', 'driver', id,
-             JSON.stringify(driver), JSON.stringify(updates)]
-        );
+        await logActivity(req.user.id, 'UPDATE_DRIVER', 'driver', id,
+            updates, driver);
 
         res.json({ message: 'Driver updated successfully', photoUrl });
 });
@@ -285,10 +274,7 @@ export const deleteDriver = asyncHandler(async (req, res) => {
         await run('DELETE FROM drivers   WHERE id = ?', [id]);
         await run('DELETE FROM employees WHERE id = ?', [driver.employee_id]);
 
-        await run(
-            'INSERT INTO activity_logs (user_id, action, entity_type, entity_id, old_values) VALUES (?, ?, ?, ?, ?)',
-            [req.user.id, 'DELETE_DRIVER', 'driver', id, JSON.stringify(driver)]
-        );
+        await logActivity(req.user.id, 'DELETE_DRIVER', 'driver', id, null, driver);
 
         res.json({ message: 'Driver deleted successfully' });
 });
@@ -375,10 +361,7 @@ export const updateDriverRating = asyncHandler(async (req, res) => {
             [Math.round(r * 10) / 10, id]
         );
 
-        await run(
-            'INSERT INTO activity_logs (user_id, action, entity_type, entity_id, new_values) VALUES (?,?,?,?,?)',
-            [req.user.id, 'UPDATE_DRIVER_RATING', 'driver', id, JSON.stringify({ rating: r, notes })]
-        );
+        await logActivity(req.user.id, 'UPDATE_DRIVER_RATING', 'driver', id, { rating: r, notes });
 
         res.json({ message: 'Rating updated successfully', rating: r });
 });

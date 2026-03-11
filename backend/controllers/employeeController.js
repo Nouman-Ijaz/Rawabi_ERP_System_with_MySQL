@@ -1,13 +1,7 @@
-import { asyncHandler } from '../middleware/asyncHandler.js';
+import { asyncHandler, httpError } from '../middleware/asyncHandler.js';
 import { query, get, run } from '../database/db.js';
 import { getPublicUrl } from '../config/multer.js';
-
-// n() — converts undefined or empty string to null so MySQL2 never receives undefined
-const n = (v) => (v !== undefined && v !== '' && v !== null) ? v : null;
-
-function generateEmployeeCode() {
-    return 'EMP-' + Date.now().toString(36).toUpperCase().slice(-6);
-}
+import { n, generateCode, logActivity } from '../utils/helpers.js';
 
 // ── GET ALL ────────────────────────────────────────────────────────────
 export const getAllEmployees = asyncHandler(async (req, res) => {
@@ -114,7 +108,7 @@ export const getEmployeeById = asyncHandler(async (req, res) => {
 // ── CREATE ─────────────────────────────────────────────────────────────
 export const createEmployee = asyncHandler(async (req, res) => {
         const b = req.body;
-        const code = generateEmployeeCode();
+        const code = generateCode('EMP');
         const photoUrl = req.file ? getPublicUrl(req.file.filename, 'employees') : null;
 
         const result = await run(
@@ -160,11 +154,8 @@ export const createEmployee = asyncHandler(async (req, res) => {
             ]
         );
 
-        await run(
-            'INSERT INTO activity_logs (user_id, action, entity_type, entity_id, new_values) VALUES (?,?,?,?,?)',
-            [req.user.id, 'CREATE_EMPLOYEE', 'employee', result.id,
-             JSON.stringify({ firstName: b.firstName, lastName: b.lastName, department: b.department })]
-        );
+        await logActivity(req.user.id, 'CREATE_EMPLOYEE', 'employee', result.id,
+            { firstName: b.firstName, lastName: b.lastName, department: b.department });
         res.status(201).json({ id: result.id, employeeCode: code, message: 'Employee created successfully' });
 });
 
@@ -249,10 +240,7 @@ export const updateEmployee = asyncHandler(async (req, res) => {
             ]
         );
 
-        await run(
-            'INSERT INTO activity_logs (user_id, action, entity_type, entity_id, old_values, new_values) VALUES (?,?,?,?,?,?)',
-            [req.user.id, 'UPDATE_EMPLOYEE', 'employee', id, JSON.stringify(emp), JSON.stringify(b)]
-        );
+        await logActivity(req.user.id, 'UPDATE_EMPLOYEE', 'employee', id, b, emp);
 
         // ── Driver lock: only lock driver when HR terminates or deactivates.
         // Driver operational status (available/on_trip/on_leave) is managed
@@ -289,10 +277,7 @@ export const deleteEmployee = asyncHandler(async (req, res) => {
         }
 
         await run('DELETE FROM employees WHERE id = ?', [id]);
-        await run(
-            'INSERT INTO activity_logs (user_id, action, entity_type, entity_id, old_values) VALUES (?,?,?,?,?)',
-            [req.user.id, 'DELETE_EMPLOYEE', 'employee', id, JSON.stringify(emp)]
-        );
+        await logActivity(req.user.id, 'DELETE_EMPLOYEE', 'employee', id, null, emp);
         res.json({ message: 'Employee deleted successfully' });
 });
 
