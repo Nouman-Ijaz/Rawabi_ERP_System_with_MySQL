@@ -13,6 +13,7 @@ import * as customerController    from '../controllers/customerController.js';
 import * as financeController     from '../controllers/financeController.js';
 import * as maintenanceController from '../controllers/maintenanceController.js';
 import * as reportsController     from '../controllers/reportsController.js';
+import * as auditController      from '../controllers/auditController.js';
 
 const router = express.Router();
 
@@ -437,5 +438,11 @@ router.post('/expiry-alerts/scan', authorize(ADMIN_UP), async (req, res) => {
     runExpiryCheck(); // fire and forget
     res.json({ message: 'Scan triggered' });
 });
+
+// ============================================
+// AUDIT LOG  (super_admin + admin only)
+// ============================================
+router.get('/audit-logs',         authorize(ADMIN_UP), auditController.getAuditLogs);
+router.get('/audit-logs/filters', authorize(ADMIN_UP), auditController.getAuditFilters);
 
 export default router;

@@ -28,6 +28,7 @@ import Leave from './pages/Leave';
 import Users from './pages/Users';
 import Settings from './pages/Settings';
 import Profile from './pages/Profile';
+import AuditLog from './pages/AuditLog';
 
 // Context
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -125,6 +126,11 @@ function App() {
             <Route path="/settings" element={
               <ProtectedRoute allowedRoles={['super_admin','admin']}>
                 <Settings />
+              </ProtectedRoute>
+            } />
+            <Route path="/audit-log" element={
+              <ProtectedRoute allowedRoles={['super_admin','admin']}>
+                <AuditLog />
               </ProtectedRoute>
             } />
             <Route path="/profile" element={<Profile />} />

@@ -414,6 +414,14 @@ export const leaveApi = {
     fetchApi<any>(`/leave/requests/${id}/cancel`, { method: 'PUT' }),
 };
 
+
+// Audit Log API
+export const auditApi = {
+  getLogs:    (params?: Record<string, string>) =>
+    fetchApi<any>(`/audit-logs?${new URLSearchParams(params || {}).toString()}`),
+  getFilters: () => fetchApi<any>('/audit-logs/filters'),
+};
+
 // Central API object export
 export const api = {
   auth: authApi,
@@ -429,6 +437,7 @@ export const api = {
   settings: settingsApi,
   payroll: payrollApi,
   leave: leaveApi,
+  audit: auditApi,
 };
 
 export default api;
