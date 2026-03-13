@@ -65,7 +65,7 @@ function StatCard({ label, value, sub, color, icon }: {
         </div>
         {sub && <span className="text-[11px] text-slate-500 bg-white/5 px-2 py-0.5 rounded-full">{sub}</span>}
       </div>
-      <p className="text-2xl font-bold text-white tabular-nums">{value}</p>
+      <p className="text-xl sm:text-2xl font-bold text-white tabular-nums">{value}</p>
       <p className="text-xs text-slate-500 mt-1">{label}</p>
     </div>
   );
@@ -154,6 +154,7 @@ export default function Dashboard() {
           <h1 className="text-xl font-bold text-white">My Dashboard</h1>
           <p className="text-xs text-slate-500 mt-0.5">Welcome back, {user.firstName}</p>
         </div>
+        <div className="sm:hidden h-px bg-white/5 w-full" />
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <StatCard label="Total Trips"    value={s?.total_trips || 0}   color="blue"    icon="shipments" />
           <StatCard label="Completed"      value={s?.completed || 0}     color="emerald" icon="shipments" />
@@ -177,7 +178,7 @@ export default function Dashboard() {
                 className="flex items-center justify-between py-2 px-3 rounded-lg hover:bg-white/5 transition-colors border border-transparent hover:border-white/5">
                 <div>
                   <p className="text-xs font-medium text-white">{s.shipment_number}</p>
-                  <p className="text-[11px] text-slate-500">{s.origin_city} → {s.destination_city}</p>
+                  <p className="text-[11px] text-slate-500 truncate">{s.origin_city} → {s.destination_city}</p>
                 </div>
                 <span className="text-[11px] px-2 py-0.5 rounded-full" style={{ background: `${STATUS_COLORS[s.status]}20`, color: STATUS_COLORS[s.status] }}>
                   {s.status.replace(/_/g, ' ')}
@@ -224,10 +225,10 @@ export default function Dashboard() {
     <div className="space-y-5">
 
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold text-white">Operations Dashboard</h1>
-          <p className="text-xs text-slate-500 mt-0.5">
+          <p className="text-xs text-slate-500 mt-0.5 hidden sm:block">
             {new Date().toLocaleDateString('en-SA', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
           </p>
         </div>
@@ -235,11 +236,12 @@ export default function Dashboard() {
           {lastUpdated && (
             <span className="flex items-center gap-1.5 text-[11px] text-slate-600">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-              Live · {lastUpdated.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+              <span className="hidden sm:inline">Live · </span>
+              {lastUpdated.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
             </span>
           )}
           <button onClick={() => load(true)} disabled={refreshing}
-            className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-white bg-white/5 hover:bg-white/10 px-3 py-1.5 rounded-lg border border-white/5 transition-colors disabled:opacity-50">
+            className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-white bg-white/5 hover:bg-white/10 px-3 py-2.5 min-h-[44px] rounded-lg border border-white/5 transition-colors disabled:opacity-50">
             {refreshing
               ? <div className="w-3.5 h-3.5 border border-blue-500/30 border-t-blue-500 rounded-full animate-spin" />
               : <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
@@ -271,7 +273,7 @@ export default function Dashboard() {
         {hasPermission(['super_admin','admin','accountant']) && revenueData.length > 0 && (
           <Card className="lg:col-span-2">
             <SectionTitle title="Revenue Trend — Last 12 Months" />
-            <div className="h-52">
+            <div className="h-44 sm:h-52">
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={revenueData} margin={{ top: 5, right: 10, bottom: 0, left: 0 }}>
                   <defs>

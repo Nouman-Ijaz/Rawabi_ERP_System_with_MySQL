@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 
 import { loadJsPDF } from '@/lib/pdf';
 import { fmtSAR, fmtDate, today } from '@/lib/format';
+import Modal, { ModalFooter } from '@/components/Modal';
 
 // ── jsPDF CDN loader ───────────────────────────────────────────────
 
@@ -272,20 +273,20 @@ export default function Expenses() {
   return (
     <div className="space-y-5">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-xl font-bold text-white">Expenses</h1>
           <p className="text-xs text-slate-500 mt-0.5">{expenses.length} total · {expenses.filter(e => e.status === 'pending').length} pending approval</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <button onClick={downloadAllPdf} disabled={pdfBusy || loading || expenses.length === 0}
-            className="flex items-center gap-1.5 px-3 py-2 bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 hover:text-white text-xs font-medium rounded-lg transition-colors disabled:opacity-40">
+            className="flex items-center gap-1.5 px-3 py-2 min-h-[44px] bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 hover:text-white text-xs font-medium rounded-lg transition-colors disabled:opacity-40">
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
             {pdfBusy ? 'Generating…' : 'Download All PDF'}
           </button>
           {canCreate && (
             <button onClick={() => { resetForm(); setShowCreate(true); }}
-              className="flex items-center gap-2 px-4 py-2 bg-orange-600 hover:bg-orange-500 text-white text-xs font-semibold rounded-lg transition-colors">
+              className="flex items-center gap-2 px-4 py-2 min-h-[44px] bg-orange-600 hover:bg-orange-500 text-white text-xs font-semibold rounded-lg transition-colors">
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4"/></svg>
               Log Expense
             </button>
@@ -335,7 +336,7 @@ export default function Expenses() {
       )}
 
       {/* Filters */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 flex-wrap">
         <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
           className="px-3 py-2 text-xs bg-[#1a1d27] border border-white/5 rounded-lg text-white focus:outline-none focus:border-blue-500/40">
           <option value="">All statuses</option>
@@ -415,16 +416,24 @@ export default function Expenses() {
       </div>
 
       {/* ── CREATE MODAL ── */}
-      {showCreate && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="w-full max-w-lg bg-[#1a1d27] rounded-2xl border border-white/10 shadow-2xl">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-white/5">
-              <h2 className="text-sm font-bold text-white">Log Expense</h2>
-              <button onClick={() => setShowCreate(false)} className="p-1 text-slate-400 hover:text-white">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg>
-              </button>
-            </div>
-            <div className="p-6 space-y-4">
+      <Modal
+        open={showCreate}
+        onClose={() => setShowCreate(false)}
+        title="Log Expense"
+        variant="sheet"
+        maxWidth="sm:max-w-lg"
+        footer={
+          <ModalFooter
+            onClose={() => setShowCreate(false)}
+            onSave={handleCreate}
+            saving={saving}
+            saveDisabled={!description || !amount}
+            saveLabel={`Submit SAR ${Number(amount || 0).toFixed(2)}`}
+            variant="warning"
+          />
+        }
+      >
+        <div className="p-4 sm:p-6 space-y-4">
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-[11px] text-slate-500 mb-1">Expense Date</label>
@@ -459,32 +468,30 @@ export default function Expenses() {
               <div className="bg-[#0f1117] rounded-lg p-3 border border-amber-500/20">
                 <p className="text-[11px] text-amber-400">This expense will be submitted for approval. Admins will review it before it's counted in reports.</p>
               </div>
-            </div>
-            <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-white/5">
-              <button onClick={() => setShowCreate(false)} className="px-4 py-2 text-xs text-slate-400 hover:text-white transition-colors">Cancel</button>
-              <button onClick={handleCreate} disabled={saving || !description || !amount}
-                className="px-5 py-2 bg-orange-600 hover:bg-orange-500 disabled:opacity-50 text-white text-xs font-semibold rounded-lg transition-colors">
-                {saving ? 'Submitting...' : `Submit SAR ${Number(amount || 0).toFixed(2)}`}
-              </button>
-            </div>
-          </div>
         </div>
-      )}
+      </Modal>
 
       {/* ── EXPENSE DETAIL MODAL ── */}
-      {viewExpense && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="w-full max-w-lg bg-[#1a1d27] rounded-2xl border border-white/10 shadow-2xl">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-white/5">
-              <div>
-                <h2 className="text-sm font-bold text-white font-mono">{viewExpense.expense_number}</h2>
-                <p className="text-[11px] text-slate-500 mt-0.5">{fmtDate(viewExpense.expense_date)}</p>
-              </div>
-              <button onClick={() => setViewExpense(null)} className="p-1 text-slate-400 hover:text-white">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg>
-              </button>
-            </div>
-            <div className="p-6 space-y-3">
+      <Modal
+        open={!!viewExpense}
+        onClose={() => setViewExpense(null)}
+        title={viewExpense?.expense_number || ''}
+        subtitle={viewExpense ? fmtDate(viewExpense.expense_date) : undefined}
+        variant="sheet"
+        maxWidth="sm:max-w-lg"
+        footer={
+          <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-t border-white/5 bg-[#1a1d27] flex-shrink-0">
+            <button onClick={() => viewExpense && printSinglePdf(viewExpense)} disabled={pdfBusy}
+              className="flex items-center gap-1.5 px-4 py-2 min-h-[44px] bg-blue-600/15 hover:bg-blue-600/30 text-blue-400 text-xs font-medium rounded-lg transition-colors disabled:opacity-40">
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
+              {pdfBusy ? 'Generating…' : 'Print Expense PDF'}
+            </button>
+            <button onClick={() => setViewExpense(null)} className="px-4 py-2 min-h-[44px] text-xs text-slate-400 hover:text-white transition-colors">Close</button>
+          </div>
+        }
+      >
+        {viewExpense && (
+          <div className="p-6 space-y-3">
               <div className="grid grid-cols-2 gap-3">
                 {([
                   ['Amount',   fmtSAR(viewExpense.amount)],
@@ -522,18 +529,9 @@ export default function Expenses() {
                   </button>
                 </div>
               )}
-            </div>
-            <div className="flex items-center justify-between px-6 py-4 border-t border-white/5">
-              <button onClick={() => printSinglePdf(viewExpense)} disabled={pdfBusy}
-                className="flex items-center gap-1.5 px-4 py-2 bg-blue-600/15 hover:bg-blue-600/30 text-blue-400 text-xs font-medium rounded-lg transition-colors disabled:opacity-40">
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
-                {pdfBusy ? 'Generating…' : 'Print Expense PDF'}
-              </button>
-              <button onClick={() => setViewExpense(null)} className="px-4 py-2 text-xs text-slate-400 hover:text-white transition-colors">Close</button>
-            </div>
           </div>
-        </div>
-      )}
+        )}
+      </Modal>
     </div>
   );
 }

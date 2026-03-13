@@ -4,6 +4,7 @@ import { customersApi } from '@/lib/api';
 import { toast } from 'sonner';
 
 import { fmtSAR, fmtDate } from '@/lib/format';
+import Modal, { ModalFooter } from '@/components/Modal';
 
 const TYPE_STYLE: Record<string, string> = {
   corporate:  'bg-blue-500/15 text-blue-400',
@@ -147,14 +148,14 @@ export default function Customers() {
   return (
     <div className="space-y-5">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-xl font-bold text-white">Customers</h1>
           <p className="text-xs text-slate-500 mt-0.5">{total} total</p>
         </div>
         {canEdit && (
           <button onClick={openCreate}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold rounded-lg transition-colors">
+            className="flex items-center gap-2 px-4 py-2 min-h-[44px] bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold rounded-lg transition-colors">
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4"/></svg>
             New Customer
           </button>
@@ -162,7 +163,7 @@ export default function Customers() {
       </div>
 
       {/* Filters */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 flex-wrap">
         <div className="relative flex-1 max-w-xs">
           <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0"/></svg>
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search name, email, city..."
@@ -211,7 +212,7 @@ export default function Customers() {
                   <td className="px-4 py-3 text-white tabular-nums">{c.total_shipments || 0}</td>
                   <td className="px-4 py-3 text-emerald-400 tabular-nums font-semibold">{fmtSAR(c.total_revenue)}</td>
                   <td className="px-4 py-3">
-                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${CUSTOMER_STATUS[c.status] || STATUS_STYLE.active}`}>{c.status}</span>
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${CUSTOMER_STATUS[c.status] || CUSTOMER_STATUS['active']}`}>{c.status}</span>
                   </td>
                   <td className="px-4 py-3"><svg className="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5l7 7-7 7"/></svg></td>
                 </tr>
@@ -222,37 +223,35 @@ export default function Customers() {
       </div>
 
       {/* ── DETAIL MODAL ── */}
-      {showDetail && selected && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-start justify-center pt-6 pb-4 px-4 overflow-y-auto">
-          <div className="w-full max-w-4xl bg-[#1a1d27] rounded-2xl border border-white/10 shadow-2xl">
-            {/* Header */}
-            <div className="flex items-start justify-between px-6 py-4 border-b border-white/5">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-blue-500/15 flex items-center justify-center">
-                  <span className="text-sm font-bold text-blue-400">{selected.company_name?.charAt(0)}</span>
-                </div>
-                <div>
-                  <h2 className="text-sm font-bold text-white">{selected.company_name}</h2>
-                  <p className="text-[11px] text-slate-500 mt-0.5">{selected.customer_code} · {selected.city}</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                {canEdit && (
-                  <button onClick={() => { setShowDetail(false); openEdit(selected); }}
-                    className="px-3 py-1.5 text-xs bg-white/5 hover:bg-white/10 text-slate-300 rounded-lg border border-white/10 transition-colors">Edit</button>
-                )}
-                {canDelete && (
-                  <button onClick={() => handleDelete(selected.id)}
-                    className="px-3 py-1.5 text-xs bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg border border-red-500/20 transition-colors">Delete</button>
-                )}
-                <button onClick={() => setShowDetail(false)} className="p-1.5 text-slate-400 hover:text-white">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg>
-                </button>
-              </div>
-            </div>
-
+      <Modal
+        open={!!(showDetail && selected)}
+        onClose={() => setShowDetail(false)}
+        title={selected?.company_name || ''}
+        subtitle={selected ? `${selected.customer_code} · ${selected.city}` : undefined}
+        variant="page"
+        maxWidth="sm:max-w-4xl"
+        headerActions={selected ? (
+          <div className="flex items-center gap-2">
+            {canEdit && (
+              <button onClick={() => { setShowDetail(false); openEdit(selected); }}
+                className="px-3 py-1.5 min-h-[44px] text-xs bg-white/5 hover:bg-white/10 text-slate-300 rounded-lg border border-white/10 transition-colors">Edit</button>
+            )}
+            {canDelete && (
+              <button onClick={() => handleDelete(selected.id)}
+                className="px-3 py-1.5 min-h-[44px] text-xs bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg border border-red-500/20 transition-colors">Delete</button>
+            )}
+          </div>
+        ) : undefined}
+        footer={
+          <div className="flex justify-end px-4 sm:px-6 py-4 border-t border-white/5 bg-[#1a1d27] flex-shrink-0">
+            <button onClick={() => setShowDetail(false)} className="px-4 py-2.5 min-h-[44px] text-xs text-slate-400 hover:text-white transition-colors">Close</button>
+          </div>
+        }
+      >
+        {selected && (
+          <div>
             {/* Stats row */}
-            <div className="grid grid-cols-4 gap-3 px-6 py-4 border-b border-white/5">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 px-4 sm:px-6 py-4 border-b border-white/5">
               {[
                 { label: 'Total Shipments', value: selected.stats?.total_shipments || 0, color: 'text-white' },
                 { label: 'Completed', value: selected.stats?.completed_shipments || 0, color: 'text-emerald-400' },
@@ -267,16 +266,17 @@ export default function Customers() {
             </div>
 
             {/* Tabs */}
-            <div className="flex gap-1 px-6 pt-4">
+            <div className="flex gap-1 px-4 sm:px-6 pt-4 overflow-x-auto">
               {(['overview','shipments','invoices','contacts'] as const).map(tab => (
                 <button key={tab} onClick={() => setDetailTab(tab)}
-                  className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors capitalize ${
+                  className={`px-3 py-1.5 min-h-[44px] text-xs font-medium rounded-lg transition-colors capitalize whitespace-nowrap ${
                     detailTab === tab ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'
                   }`}>{tab}</button>
               ))}
             </div>
 
-            <div className="p-6 pt-4">
+            <div className="p-4 sm:p-6 pt-4">
+
               {/* Overview tab */}
               {detailTab === 'overview' && (
                 <div className="grid grid-cols-2 gap-5">
@@ -383,55 +383,56 @@ export default function Customers() {
               )}
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </Modal>
 
       {/* ── CREATE / EDIT FORM MODAL ── */}
-      {showForm && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-start justify-center pt-6 pb-4 px-4 overflow-y-auto">
-          <div className="w-full max-w-2xl bg-[#1a1d27] rounded-2xl border border-white/10 shadow-2xl">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-white/5">
-              <h2 className="text-sm font-bold text-white">{editId ? 'Edit Customer' : 'New Customer'}</h2>
-              <button onClick={() => setShowForm(false)} className="p-1 text-slate-400 hover:text-white">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg>
-              </button>
-            </div>
-            <div className="p-6 space-y-4">
-              <div className="grid grid-cols-2 gap-3">
-                <div className="col-span-2"><FIn label="Company Name" required value={form.companyName} onChange={(e: any) => f('companyName', e.target.value)} placeholder="e.g. Saudi Aramco" /></div>
-                <FIn label="Contact Person" value={form.contactPerson} onChange={(e: any) => f('contactPerson', e.target.value)} placeholder="Primary contact name" />
-                <FIn label="Email" type="email" value={form.email} onChange={(e: any) => f('email', e.target.value)} placeholder="contact@company.com" />
-                <FIn label="Phone" value={form.phone} onChange={(e: any) => f('phone', e.target.value)} placeholder="+966 13 xxx xxxx" />
-                <FIn label="Mobile" value={form.mobile} onChange={(e: any) => f('mobile', e.target.value)} placeholder="+966 5xx xxx xxx" />
-                <FIn label="City" value={form.city} onChange={(e: any) => f('city', e.target.value)} placeholder="e.g. Riyadh" />
-                <FIn label="Country" value={form.country} onChange={(e: any) => f('country', e.target.value)} />
-                <div className="col-span-2"><FIn label="Address" value={form.address} onChange={(e: any) => f('address', e.target.value)} placeholder="Full address" /></div>
-                <FIn label="VAT Number" value={form.taxNumber} onChange={(e: any) => f('taxNumber', e.target.value)} placeholder="e.g. 300123456700003" />
-                <FIn label="CR Number" value={form.crNumber} onChange={(e: any) => f('crNumber', e.target.value)} placeholder="Commercial registration" />
-                <FIn label="Credit Limit (SAR)" type="number" value={form.creditLimit} onChange={(e: any) => f('creditLimit', e.target.value)} placeholder="0" />
-                <FSel label="Payment Terms (days)" value={form.paymentTerms} onChange={(e: any) => f('paymentTerms', e.target.value)}>
-                  {[15,30,45,60,90].map(t => <option key={t} value={t}>Net {t}</option>)}
-                </FSel>
-                <FSel label="Customer Type" value={form.customerType} onChange={(e: any) => f('customerType', e.target.value)}>
-                  {['regular','vip','corporate','government'].map(t => <option key={t} value={t}>{t.charAt(0).toUpperCase()+t.slice(1)}</option>)}
-                </FSel>
-                {editId && (
-                  <FSel label="Status" value={form.status} onChange={(e: any) => f('status', e.target.value)}>
-                    {['active','inactive','suspended'].map(s => <option key={s} value={s}>{s.charAt(0).toUpperCase()+s.slice(1)}</option>)}
-                  </FSel>
-                )}
-              </div>
-            </div>
-            <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-white/5">
-              <button onClick={() => setShowForm(false)} className="px-4 py-2 text-xs text-slate-400 hover:text-white transition-colors">Cancel</button>
-              <button onClick={handleSave} disabled={saving}
-                className="px-5 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-xs font-semibold rounded-lg transition-colors">
-                {saving ? 'Saving...' : editId ? 'Save Changes' : 'Create Customer'}
-              </button>
-            </div>
+      <Modal
+        open={showForm}
+        onClose={() => setShowForm(false)}
+        title={editId ? 'Edit Customer' : 'New Customer'}
+        variant="page"
+        maxWidth="sm:max-w-2xl"
+        footer={
+          <ModalFooter
+            onClose={() => setShowForm(false)}
+            onSave={handleSave}
+            saving={saving}
+            saveLabel={editId ? 'Save Changes' : 'Create Customer'}
+          />
+        }
+      >
+        <div className="p-4 sm:p-6 space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="col-span-2"><FIn label="Company Name" required value={form.companyName} onChange={(e: any) => f('companyName', e.target.value)} placeholder="e.g. Saudi Aramco" /></div>
+        <FIn label="Contact Person" value={form.contactPerson} onChange={(e: any) => f('contactPerson', e.target.value)} placeholder="Primary contact name" />
+        <FIn label="Email" type="email" value={form.email} onChange={(e: any) => f('email', e.target.value)} placeholder="contact@company.com" />
+        <FIn label="Phone" value={form.phone} onChange={(e: any) => f('phone', e.target.value)} placeholder="+966 13 xxx xxxx" />
+        <FIn label="Mobile" value={form.mobile} onChange={(e: any) => f('mobile', e.target.value)} placeholder="+966 5xx xxx xxx" />
+        <FIn label="City" value={form.city} onChange={(e: any) => f('city', e.target.value)} placeholder="e.g. Riyadh" />
+        <FIn label="Country" value={form.country} onChange={(e: any) => f('country', e.target.value)} />
+        <div className="col-span-2"><FIn label="Address" value={form.address} onChange={(e: any) => f('address', e.target.value)} placeholder="Full address" /></div>
+        <FIn label="VAT Number" value={form.taxNumber} onChange={(e: any) => f('taxNumber', e.target.value)} placeholder="e.g. 300123456700003" />
+        <FIn label="CR Number" value={form.crNumber} onChange={(e: any) => f('crNumber', e.target.value)} placeholder="Commercial registration" />
+        <FIn label="Credit Limit (SAR)" type="number" value={form.creditLimit} onChange={(e: any) => f('creditLimit', e.target.value)} placeholder="0" />
+        <FSel label="Payment Terms (days)" value={form.paymentTerms} onChange={(e: any) => f('paymentTerms', e.target.value)}>
+          {[15,30,45,60,90].map(t => <option key={t} value={t}>Net {t}</option>)}
+        </FSel>
+        <FSel label="Customer Type" value={form.customerType} onChange={(e: any) => f('customerType', e.target.value)}>
+          {['regular','vip','corporate','government'].map(t => <option key={t} value={t}>{t.charAt(0).toUpperCase()+t.slice(1)}</option>)}
+        </FSel>
+        {editId && (
+          <FSel label="Status" value={form.status} onChange={(e: any) => f('status', e.target.value)}>
+            {['active','inactive','suspended'].map(s => <option key={s} value={s}>{s.charAt(0).toUpperCase()+s.slice(1)}</option>)}
+          </FSel>
+        )}
+      </div>
+    
           </div>
         </div>
-      )}
+      </Modal>
     </div>
   );
 }

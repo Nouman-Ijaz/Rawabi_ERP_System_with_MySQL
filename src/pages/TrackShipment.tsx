@@ -3,13 +3,13 @@ import { useParams } from 'react-router-dom';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
-const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string; icon: string }> = {
-  pending:     { label: 'Pending',     color: '#94a3b8', bg: '#1e293b', icon: '🕐' },
-  confirmed:   { label: 'Confirmed',   color: '#60a5fa', bg: '#1e3a5f', icon: '✅' },
-  in_transit:  { label: 'In Transit',  color: '#f59e0b', bg: '#451a03', icon: '🚛' },
-  delivered:   { label: 'Delivered',   color: '#34d399', bg: '#064e3b', icon: '📦' },
-  cancelled:   { label: 'Cancelled',   color: '#f87171', bg: '#450a0a', icon: '❌' },
-  on_hold:     { label: 'On Hold',     color: '#fb923c', bg: '#431407', icon: '⏸️' },
+const STATUS_CONFIG: Record<string, { label: string; dotColor: string; badgeBg: string; badgeText: string; icon: string }> = {
+  pending:    { label: 'Pending',    dotColor: 'bg-slate-400',  badgeBg: 'bg-slate-500/20',  badgeText: 'text-slate-300',  icon: '🕐' },
+  confirmed:  { label: 'Confirmed',  dotColor: 'bg-blue-400',   badgeBg: 'bg-blue-500/20',   badgeText: 'text-blue-300',   icon: '✅' },
+  in_transit: { label: 'In Transit', dotColor: 'bg-amber-400',  badgeBg: 'bg-amber-500/20',  badgeText: 'text-amber-300',  icon: '🚛' },
+  delivered:  { label: 'Delivered',  dotColor: 'bg-emerald-400',badgeBg: 'bg-emerald-500/20',badgeText: 'text-emerald-300',icon: '📦' },
+  cancelled:  { label: 'Cancelled',  dotColor: 'bg-red-400',    badgeBg: 'bg-red-500/20',    badgeText: 'text-red-300',    icon: '❌' },
+  on_hold:    { label: 'On Hold',    dotColor: 'bg-orange-400', badgeBg: 'bg-orange-500/20', badgeText: 'text-orange-300', icon: '⏸️' },
 };
 
 const EVENT_ICONS: Record<string, string> = {
@@ -19,12 +19,20 @@ const EVENT_ICONS: Record<string, string> = {
   document_uploaded: '📄', status_update: '🔄',
 };
 
+const STEPS = ['pending', 'confirmed', 'in_transit', 'delivered'] as const;
+const STEP_LABELS: Record<string, string> = {
+  pending: 'Pending', confirmed: 'Confirmed', in_transit: 'In Transit', delivered: 'Delivered',
+};
+const STEP_ICONS: Record<string, string> = {
+  pending: '📋', confirmed: '✅', in_transit: '🚛', delivered: '🏁',
+};
+
 export default function TrackShipment() {
   const { trackingNumber: urlParam } = useParams<{ trackingNumber?: string }>();
-  const [query, setQuery]         = useState(urlParam || '');
-  const [loading, setLoading]     = useState(false);
-  const [result, setResult]       = useState<any>(null);
-  const [error, setError]         = useState('');
+  const [query, setQuery]     = useState(urlParam || '');
+  const [loading, setLoading] = useState(false);
+  const [result, setResult]   = useState<any>(null);
+  const [error, setError]     = useState('');
 
   useEffect(() => {
     if (urlParam) handleTrack(urlParam);
@@ -48,117 +56,108 @@ export default function TrackShipment() {
 
   const handleKey = (e: React.KeyboardEvent) => { if (e.key === 'Enter') handleTrack(); };
 
-  const shipment = result?.shipment;
+  const shipment   = result?.shipment;
   const tracking: any[] = result?.tracking || [];
-  const statusCfg = shipment ? (STATUS_CONFIG[shipment.status] || STATUS_CONFIG.pending) : null;
-
-  // Progress steps
-  const STEPS = ['pending','confirmed','in_transit','delivered'];
-  const stepIndex = shipment ? STEPS.indexOf(shipment.status) : -1;
+  const statusCfg  = shipment ? (STATUS_CONFIG[shipment.status] || STATUS_CONFIG.pending) : null;
+  const stepIndex  = shipment ? STEPS.indexOf(shipment.status as any) : -1;
 
   return (
-    <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #050709 0%, #0a0d14 50%, #0d1117 100%)', fontFamily: "'Segoe UI', Arial, sans-serif" }}>
+    <div className="min-h-screen bg-gradient-to-br from-[#050709] via-[#0a0d14] to-[#0d1117] font-sans">
 
-      {/* Animated background dots */}
-      <div style={{ position: 'fixed', inset: 0, overflow: 'hidden', pointerEvents: 'none' }}>
-        {[...Array(6)].map((_, i) => (
-          <div key={i} style={{
-            position: 'absolute',
-            borderRadius: '50%',
-            background: `radial-gradient(circle, rgba(59,130,246,0.06) 0%, transparent 70%)`,
-            width: `${200 + i * 80}px`, height: `${200 + i * 80}px`,
-            top: `${[10, 60, 20, 70, 5, 45][i]}%`,
-            left: `${[5, 70, 40, 15, 85, 55][i]}%`,
-            transform: 'translate(-50%,-50%)',
-          }}/>
+      {/* Background blobs — decorative, hidden on very small screens for perf */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none hidden sm:block" aria-hidden>
+        {[
+          'top-[10%] left-[5%]',
+          'top-[60%] left-[70%]',
+          'top-[20%] left-[40%]',
+          'top-[70%] left-[15%]',
+          'top-[5%] left-[85%]',
+          'top-[45%] left-[55%]',
+        ].map((pos, i) => (
+          <div key={i} className={`absolute rounded-full opacity-60 ${pos}`}
+            style={{ width: `${200 + i * 80}px`, height: `${200 + i * 80}px`, background: 'radial-gradient(circle, rgba(59,130,246,0.06) 0%, transparent 70%)', transform: 'translate(-50%,-50%)' }} />
         ))}
       </div>
 
-      <div style={{ position: 'relative', maxWidth: '720px', margin: '0 auto', padding: '40px 20px 80px' }}>
+      <div className="relative max-w-2xl mx-auto px-4 py-10 sm:py-16 pb-20">
 
         {/* Header */}
-        <div style={{ textAlign: 'center', marginBottom: '48px' }}>
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '10px', background: 'rgba(59,130,246,0.08)', border: '1px solid rgba(59,130,246,0.2)', borderRadius: '50px', padding: '6px 16px', marginBottom: '24px' }}>
-            <span style={{ fontSize: '14px' }}>🚛</span>
-            <span style={{ fontSize: '12px', color: '#60a5fa', fontWeight: '600', letterSpacing: '0.05em' }}>RAWABI LOGISTICS</span>
+        <div className="text-center mb-10 sm:mb-12">
+          <div className="inline-flex items-center gap-2 bg-blue-500/10 border border-blue-500/20 rounded-full px-4 py-1.5 mb-6">
+            <span className="text-sm">🚛</span>
+            <span className="text-xs text-blue-400 font-semibold tracking-widest uppercase">Rawabi Logistics</span>
           </div>
-          <h1 style={{ fontSize: '32px', fontWeight: '800', color: 'white', margin: '0 0 8px', letterSpacing: '-0.02em' }}>
+          <h1 className="text-2xl sm:text-4xl font-extrabold text-white mb-2 tracking-tight">
             Track Your Shipment
           </h1>
-          <p style={{ color: '#64748b', fontSize: '14px', margin: 0 }}>
-            Enter your tracking number or shipment reference to get real-time updates
+          <p className="text-sm text-slate-500">
+            Enter your tracking number or shipment reference for real-time updates
           </p>
         </div>
 
         {/* Search box */}
-        <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px', padding: '24px', marginBottom: '24px', backdropFilter: 'blur(10px)' }}>
-          <label style={{ display: 'block', fontSize: '11px', color: '#64748b', fontWeight: '600', letterSpacing: '0.08em', marginBottom: '10px' }}>
-            TRACKING NUMBER / SHIPMENT NUMBER
+        <div className="bg-white/[0.03] border border-white/[0.08] rounded-2xl p-4 sm:p-6 mb-6 backdrop-blur-sm">
+          <label className="block text-[11px] text-slate-500 font-semibold tracking-widest uppercase mb-2.5">
+            Tracking Number / Shipment Number
           </label>
-          <div style={{ display: 'flex', gap: '10px' }}>
+          <div className="flex gap-2 sm:gap-3">
             <input
               value={query}
               onChange={e => setQuery(e.target.value)}
               onKeyDown={handleKey}
               placeholder="e.g. RWB-2026-001 or TRK-XXXXXXXXX"
-              style={{
-                flex: 1, background: 'rgba(0,0,0,0.4)', border: '1px solid rgba(255,255,255,0.1)',
-                borderRadius: '10px', padding: '12px 16px', fontSize: '14px', color: 'white',
-                outline: 'none', letterSpacing: '0.02em',
-                transition: 'border-color 0.2s',
-              }}
-              onFocus={e => e.target.style.borderColor = 'rgba(59,130,246,0.5)'}
-              onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
+              className="flex-1 min-w-0 bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-blue-500/50 transition-colors"
             />
             <button
               onClick={() => handleTrack()}
               disabled={loading || !query.trim()}
-              style={{
-                background: loading || !query.trim() ? 'rgba(59,130,246,0.3)' : '#2563eb',
-                color: 'white', border: 'none', borderRadius: '10px', padding: '12px 24px',
-                fontSize: '13px', fontWeight: '700', cursor: loading || !query.trim() ? 'not-allowed' : 'pointer',
-                minWidth: '100px', transition: 'background 0.2s',
-              }}
-              onMouseEnter={e => { if (!loading && query.trim()) (e.target as HTMLElement).style.background = '#1d4ed8'; }}
-              onMouseLeave={e => { if (!loading && query.trim()) (e.target as HTMLElement).style.background = '#2563eb'; }}
+              className="px-5 py-3 min-h-[48px] bg-blue-600 hover:bg-blue-500 disabled:bg-blue-600/30 disabled:cursor-not-allowed text-white text-sm font-bold rounded-xl transition-colors whitespace-nowrap flex items-center gap-2"
             >
               {loading ? (
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                  <span style={{ display: 'inline-block', width: '12px', height: '12px', border: '2px solid rgba(255,255,255,0.3)', borderTopColor: 'white', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }}/>
-                  Searching
-                </span>
-              ) : 'Track →'}
+                <>
+                  <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                  </svg>
+                  <span className="hidden sm:inline">Searching</span>
+                </>
+              ) : (
+                <>Track <span className="hidden sm:inline">→</span></>
+              )}
             </button>
           </div>
+
           {error && (
-            <div style={{ marginTop: '12px', padding: '10px 14px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: '8px', color: '#fca5a5', fontSize: '13px' }}>
+            <div className="mt-3 px-4 py-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-300 text-sm">
               ⚠️ {error}
             </div>
           )}
         </div>
 
-        {/* Result */}
+        {/* ── Results ── */}
         {shipment && statusCfg && (
-          <>
+          <div className="space-y-4">
+
             {/* Status card */}
-            <div style={{ background: `rgba(${statusCfg.bg},0.5)`, border: `1px solid ${statusCfg.color}30`, borderRadius: '16px', padding: '24px', marginBottom: '16px', backdropFilter: 'blur(10px)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px' }}>
+            <div className="bg-white/[0.03] border border-white/[0.08] rounded-2xl p-4 sm:p-6 backdrop-blur-sm">
+              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
                 <div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
-                    <span style={{ fontSize: '22px' }}>{statusCfg.icon}</span>
-                    <span style={{ background: `${statusCfg.color}20`, color: statusCfg.color, border: `1px solid ${statusCfg.color}40`, borderRadius: '20px', padding: '3px 12px', fontSize: '11px', fontWeight: '700', letterSpacing: '0.05em' }}>
-                      {statusCfg.label.toUpperCase()}
+                  <div className="flex items-center gap-2.5 mb-3">
+                    <span className="text-xl">{statusCfg.icon}</span>
+                    <span className={`inline-flex items-center px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider border ${statusCfg.badgeBg} ${statusCfg.badgeText} border-current/20`}>
+                      {statusCfg.label}
                     </span>
                   </div>
-                  <h2 style={{ color: 'white', fontSize: '22px', fontWeight: '800', margin: '0 0 4px', letterSpacing: '-0.01em' }}>
+                  <h2 className="text-xl sm:text-2xl font-extrabold text-white tracking-tight mb-1">
                     {shipment.shipmentNumber}
                   </h2>
-                  <p style={{ color: '#64748b', fontSize: '12px', margin: 0, fontFamily: 'monospace' }}>{shipment.trackingNumber}</p>
+                  <p className="text-[11px] text-slate-500 font-mono">{shipment.trackingNumber}</p>
                 </div>
+
                 {shipment.estimatedDelivery && (
-                  <div style={{ textAlign: 'right', background: 'rgba(0,0,0,0.3)', borderRadius: '10px', padding: '12px 16px' }}>
-                    <p style={{ color: '#64748b', fontSize: '10px', margin: '0 0 4px', letterSpacing: '0.05em' }}>EST. DELIVERY</p>
-                    <p style={{ color: 'white', fontSize: '16px', fontWeight: '700', margin: 0 }}>
+                  <div className="bg-black/30 rounded-xl px-4 py-3 sm:text-right flex-shrink-0">
+                    <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Est. Delivery</p>
+                    <p className="text-base font-bold text-white">
                       {new Date(shipment.estimatedDelivery).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
                     </p>
                   </div>
@@ -166,22 +165,22 @@ export default function TrackShipment() {
               </div>
 
               {/* Route */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '20px', padding: '14px', background: 'rgba(0,0,0,0.2)', borderRadius: '10px', flexWrap: 'wrap' }}>
-                <div style={{ flex: 1, minWidth: '120px' }}>
-                  <p style={{ color: '#64748b', fontSize: '10px', margin: '0 0 3px', letterSpacing: '0.05em' }}>FROM</p>
-                  <p style={{ color: 'white', fontSize: '14px', fontWeight: '600', margin: 0 }}>{shipment.origin}</p>
+              <div className="mt-4 bg-black/20 rounded-xl p-3 sm:p-4 flex items-center gap-3">
+                <div className="flex-1 min-w-0">
+                  <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">From</p>
+                  <p className="text-sm font-semibold text-white truncate">{shipment.origin}</p>
                 </div>
-                <div style={{ color: '#60a5fa', fontSize: '20px', flexShrink: 0 }}>→</div>
-                <div style={{ flex: 1, minWidth: '120px', textAlign: 'right' }}>
-                  <p style={{ color: '#64748b', fontSize: '10px', margin: '0 0 3px', letterSpacing: '0.05em' }}>TO</p>
-                  <p style={{ color: 'white', fontSize: '14px', fontWeight: '600', margin: 0 }}>{shipment.destination}</p>
+                <div className="text-blue-400 text-lg flex-shrink-0">→</div>
+                <div className="flex-1 min-w-0 text-right">
+                  <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">To</p>
+                  <p className="text-sm font-semibold text-white truncate">{shipment.destination}</p>
                 </div>
               </div>
 
-              {/* Cargo info */}
+              {/* Cargo type */}
               {shipment.cargoType && (
-                <div style={{ marginTop: '12px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                  <span style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', padding: '4px 10px', color: '#94a3b8', fontSize: '11px' }}>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <span className="bg-white/5 border border-white/10 rounded-lg px-3 py-1 text-[11px] text-slate-400">
                     📦 {shipment.cargoType}
                   </span>
                 </div>
@@ -189,23 +188,32 @@ export default function TrackShipment() {
             </div>
 
             {/* Progress bar */}
-            {!['cancelled','on_hold'].includes(shipment.status) && (
-              <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '12px', padding: '20px', marginBottom: '16px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', position: 'relative' }}>
-                  {/* Progress line */}
-                  <div style={{ position: 'absolute', top: '16px', left: '8%', right: '8%', height: '2px', background: 'rgba(255,255,255,0.08)' }}/>
-                  <div style={{ position: 'absolute', top: '16px', left: '8%', width: `${Math.max(0, (stepIndex / (STEPS.length - 1)) * 84)}%`, height: '2px', background: '#2563eb', transition: 'width 0.5s ease' }}/>
+            {!['cancelled', 'on_hold'].includes(shipment.status) && (
+              <div className="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-4 sm:p-5">
+                <div className="relative flex justify-between">
+                  {/* Track line background */}
+                  <div className="absolute top-4 left-[8%] right-[8%] h-0.5 bg-white/[0.08]" />
+                  {/* Track line filled */}
+                  <div
+                    className="absolute top-4 left-[8%] h-0.5 bg-blue-500 transition-all duration-500"
+                    style={{ width: `${Math.max(0, (stepIndex / (STEPS.length - 1)) * 84)}%` }}
+                  />
                   {STEPS.map((step, i) => {
                     const done = i <= stepIndex;
-                    const icons: Record<string, string> = { pending: '📋', confirmed: '✅', in_transit: '🚛', delivered: '🏁' };
-                    const labels: Record<string, string> = { pending: 'Pending', confirmed: 'Confirmed', in_transit: 'In Transit', delivered: 'Delivered' };
                     return (
-                      <div key={step} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', position: 'relative', zIndex: 1 }}>
-                        <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: done ? '#2563eb' : 'rgba(255,255,255,0.05)', border: `2px solid ${done ? '#2563eb' : 'rgba(255,255,255,0.1)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', transition: 'all 0.3s' }}>
-                          {done ? <span>{icons[step]}</span> : <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'rgba(255,255,255,0.2)' }}/>}
+                      <div key={step} className="relative z-10 flex flex-col items-center gap-2">
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm border-2 transition-all ${
+                          done
+                            ? 'bg-blue-600 border-blue-500'
+                            : 'bg-white/5 border-white/10'
+                        }`}>
+                          {done
+                            ? <span className="text-xs">{STEP_ICONS[step]}</span>
+                            : <div className="w-2 h-2 rounded-full bg-white/20" />
+                          }
                         </div>
-                        <span style={{ color: done ? '#cbd5e1' : '#475569', fontSize: '10px', fontWeight: done ? '600' : '400', textAlign: 'center', whiteSpace: 'nowrap' }}>
-                          {labels[step]}
+                        <span className={`text-[10px] font-medium text-center leading-tight ${done ? 'text-slate-300' : 'text-slate-600'}`}>
+                          {STEP_LABELS[step]}
                         </span>
                       </div>
                     );
@@ -216,39 +224,47 @@ export default function TrackShipment() {
 
             {/* Timeline */}
             {tracking.length > 0 && (
-              <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '16px', padding: '20px' }}>
-                <h3 style={{ color: 'white', fontSize: '13px', fontWeight: '700', margin: '0 0 18px', letterSpacing: '0.05em' }}>
-                  SHIPMENT TIMELINE
+              <div className="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-4 sm:p-6">
+                <h3 className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-5">
+                  Shipment Timeline
                 </h3>
-                <div style={{ position: 'relative' }}>
+                <div className="relative">
                   {/* Vertical line */}
-                  <div style={{ position: 'absolute', left: '15px', top: '8px', bottom: '8px', width: '1px', background: 'rgba(255,255,255,0.06)' }}/>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0' }}>
+                  <div className="absolute left-[15px] top-2 bottom-2 w-px bg-white/[0.06]" />
+
+                  <div className="flex flex-col">
                     {tracking.map((event: any, i: number) => (
-                      <div key={event.id || i} style={{ display: 'flex', gap: '16px', paddingBottom: i < tracking.length - 1 ? '18px' : '0' }}>
-                        <div style={{ flexShrink: 0, width: '30px', display: 'flex', justifyContent: 'center', position: 'relative', zIndex: 1 }}>
-                          <div style={{ width: '30px', height: '30px', borderRadius: '50%', background: i === 0 ? 'rgba(59,130,246,0.2)' : 'rgba(255,255,255,0.05)', border: `1px solid ${i === 0 ? 'rgba(59,130,246,0.4)' : 'rgba(255,255,255,0.08)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px' }}>
+                      <div key={event.id || i} className={`flex gap-4 ${i < tracking.length - 1 ? 'pb-5' : ''}`}>
+                        {/* Icon */}
+                        <div className="flex-shrink-0 w-8 flex justify-center relative z-10">
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs border ${
+                            i === 0
+                              ? 'bg-blue-500/20 border-blue-500/40'
+                              : 'bg-white/5 border-white/[0.08]'
+                          }`}>
                             {EVENT_ICONS[event.event_type] || '•'}
                           </div>
                         </div>
-                        <div style={{ flex: 1, paddingTop: '4px' }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px', flexWrap: 'wrap' }}>
-                            <div>
-                              <p style={{ color: i === 0 ? 'white' : '#cbd5e1', fontSize: '13px', fontWeight: i === 0 ? '600' : '400', margin: '0 0 3px', textTransform: 'capitalize' }}>
+
+                        {/* Content */}
+                        <div className="flex-1 min-w-0 pt-1">
+                          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-1">
+                            <div className="min-w-0">
+                              <p className={`text-sm capitalize leading-snug ${i === 0 ? 'text-white font-semibold' : 'text-slate-300 font-normal'}`}>
                                 {(event.event_description || event.event_type || '').replace(/_/g, ' ')}
                               </p>
                               {event.location && (
-                                <p style={{ color: '#60a5fa', fontSize: '11px', margin: '0 0 2px' }}>📍 {event.location}</p>
+                                <p className="text-[11px] text-blue-400 mt-0.5">📍 {event.location}</p>
                               )}
                               {event.notes && (
-                                <p style={{ color: '#64748b', fontSize: '11px', margin: 0 }}>{event.notes}</p>
+                                <p className="text-[11px] text-slate-500 mt-0.5">{event.notes}</p>
                               )}
                             </div>
-                            <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                              <p style={{ color: '#475569', fontSize: '10px', margin: 0, whiteSpace: 'nowrap' }}>
+                            <div className="flex-shrink-0 sm:text-right">
+                              <p className="text-[10px] text-slate-500 whitespace-nowrap">
                                 {new Date(event.event_time).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
                               </p>
-                              <p style={{ color: '#334155', fontSize: '10px', margin: '2px 0 0', whiteSpace: 'nowrap' }}>
+                              <p className="text-[10px] text-slate-600 whitespace-nowrap mt-0.5">
                                 {new Date(event.event_time).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
                               </p>
                             </div>
@@ -262,26 +278,23 @@ export default function TrackShipment() {
             )}
 
             {tracking.length === 0 && (
-              <div style={{ textAlign: 'center', padding: '24px', color: '#475569', fontSize: '13px' }}>
+              <div className="text-center py-8 text-slate-500 text-sm">
                 No tracking events yet. Check back soon.
               </div>
             )}
-          </>
+          </div>
         )}
 
         {/* Footer */}
-        <div style={{ textAlign: 'center', marginTop: '48px', color: '#1e293b', fontSize: '12px' }}>
-          <p style={{ margin: '0 0 4px' }}>© {new Date().getFullYear()} Rawabi Logistics · All rights reserved</p>
-          <p style={{ margin: 0 }}>
-            <a href="/login" style={{ color: '#334155', textDecoration: 'none' }}>Staff Portal →</a>
+        <div className="text-center mt-12 text-slate-700 text-xs space-y-1">
+          <p>© {new Date().getFullYear()} Rawabi Logistics · All rights reserved</p>
+          <p>
+            <a href="/login" className="text-slate-600 hover:text-slate-400 transition-colors">
+              Staff Portal →
+            </a>
           </p>
         </div>
       </div>
-
-      <style>{`
-        @keyframes spin { to { transform: rotate(360deg); } }
-        input::placeholder { color: #334155; }
-      `}</style>
     </div>
   );
 }

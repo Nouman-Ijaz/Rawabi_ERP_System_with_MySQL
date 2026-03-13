@@ -251,14 +251,14 @@ export default function Fleet() {
     <div className="space-y-5">
 
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold text-white">Fleet</h1>
           <p className="text-xs text-slate-500 mt-0.5">{vehicles.length} vehicles · {drivers.length} drivers</p>
         </div>
         {canEdit && (
           <button onClick={tab==='vehicles'?openVCreate:openDCreate}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold rounded-lg transition-colors">
+            className="flex items-center gap-2 px-4 py-2.5 min-h-[44px] bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold rounded-lg transition-colors">
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4"/></svg>
             {tab==='vehicles'?'Add Vehicle':'Add Driver'}
           </button>
@@ -269,7 +269,7 @@ export default function Fleet() {
       <div className="flex gap-2">
         {(['vehicles','drivers'] as const).map(t=>(
           <button key={t} onClick={()=>navigate(`/fleet/${t}`)}
-            className={`flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-lg transition-colors capitalize ${tab===t?'bg-blue-600 text-white':'bg-[#1a1d27] text-slate-400 hover:text-white border border-white/5'}`}>
+            className={`flex items-center gap-2 px-4 py-2.5 min-h-[44px] text-xs font-semibold rounded-lg transition-colors capitalize ${tab===t?'bg-blue-600 text-white':'bg-[#1a1d27] text-slate-400 hover:text-white border border-white/5'}`}>
             {t}
             {t==='vehicles'&&expiringV>0&&<span className="bg-amber-500 text-black text-[10px] font-bold px-1.5 py-0.5 rounded-full">{expiringV}</span>}
             {t==='drivers' &&expiringD>0&&<span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">{expiringD}</span>}
@@ -284,7 +284,7 @@ export default function Fleet() {
             <div className="relative">
               <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0"/></svg>
               <input value={vSearch} onChange={e=>setVSearch(e.target.value)} placeholder="Plate, brand, model…"
-                className="pl-9 pr-4 py-2 w-48 text-xs bg-[#1a1d27] border border-white/5 rounded-lg text-white placeholder-slate-600 focus:outline-none focus:border-blue-500/40"/>
+                className="pl-9 pr-4 py-2 w-full sm:w-48 text-xs bg-[#1a1d27] border border-white/5 rounded-lg text-white placeholder-slate-600 focus:outline-none focus:border-blue-500/40"/>
             </div>
             <select value={vStatus} onChange={e=>setVStatus(e.target.value)} className={fSel}>
               <option value="">All Statuses</option>
@@ -347,7 +347,7 @@ export default function Fleet() {
                         <td className={`px-4 py-3 ${rw} whitespace-nowrap`}>{fmtDate(v.registration_expiry)}</td>
                         <td className={`px-4 py-3 ${iw} whitespace-nowrap`}>{fmtDate(v.insurance_expiry)}</td>
                         <td className="px-4 py-3"><span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${VEHICLE_STATUS[v.status]||''}`}>{v.status}</span></td>
-                        <td className="px-4 py-3">{canEdit&&<div className="flex gap-2"><button onClick={()=>openVEdit(v)} className="text-[11px] text-slate-400 hover:text-white transition-colors">Edit</button><button onClick={()=>handleVDelete(v.id)} className="text-[11px] text-red-400/60 hover:text-red-400 transition-colors">Del</button></div>}</td>
+                        <td className="px-4 py-3">{canEdit&&<div className="flex gap-2"><button onClick={()=>openVEdit(v)} className="px-2 py-1.5 min-h-[36px] text-[11px] text-slate-400 hover:text-white transition-colors rounded">Edit</button><button onClick={()=>handleVDelete(v.id)} className="px-2 py-1.5 min-h-[36px] text-[11px] text-red-400/60 hover:text-red-400 transition-colors rounded">Del</button></div>}</td>
                       </tr>
                     );
                   })}
@@ -365,7 +365,7 @@ export default function Fleet() {
             <div className="relative">
               <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0"/></svg>
               <input value={dSearch} onChange={e=>setDSearch(e.target.value)} placeholder="Name, license…"
-                className="pl-9 pr-4 py-2 w-48 text-xs bg-[#1a1d27] border border-white/5 rounded-lg text-white placeholder-slate-600 focus:outline-none focus:border-blue-500/40"/>
+                className="pl-9 pr-4 py-2 w-full sm:w-48 text-xs bg-[#1a1d27] border border-white/5 rounded-lg text-white placeholder-slate-600 focus:outline-none focus:border-blue-500/40"/>
             </div>
             <select value={dStatus} onChange={e=>setDStatus(e.target.value)} className={fSel}>
               <option value="">All Statuses</option>
@@ -433,7 +433,7 @@ export default function Fleet() {
                         </td>
                         <td className="px-4 py-3 text-slate-300">{d.assigned_vehicle_plate||<span className="text-slate-600">None</span>}</td>
                         <td className="px-4 py-3"><span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${DRIVER_STATUS[d.driver_status]||''}`}>{d.driver_status?.replace(/_/g,' ')}</span></td>
-                        <td className="px-4 py-3">{canEdit&&<div className="flex gap-2"><button onClick={()=>openDEdit(d)} className="text-[11px] text-slate-400 hover:text-white transition-colors">Edit</button><button onClick={()=>handleDDelete(d.id)} className="text-[11px] text-red-400/60 hover:text-red-400 transition-colors">Del</button></div>}</td>
+                        <td className="px-4 py-3">{canEdit&&<div className="flex gap-2"><button onClick={()=>openDEdit(d)} className="px-2 py-1.5 min-h-[36px] text-[11px] text-slate-400 hover:text-white transition-colors rounded">Edit</button><button onClick={()=>handleDDelete(d.id)} className="px-2 py-1.5 min-h-[36px] text-[11px] text-red-400/60 hover:text-red-400 transition-colors rounded">Del</button></div>}</td>
                       </tr>
                     );
                   })}
@@ -463,9 +463,9 @@ export default function Fleet() {
                 className="w-full px-3 py-2 text-xs bg-[#0c0e13] border border-white/10 rounded-lg text-white placeholder-slate-600 focus:outline-none focus:border-amber-500/50 resize-none"/>
             </div>
             <div className="flex gap-3">
-              <button onClick={()=>setRateTarget(null)} className="flex-1 py-2 text-xs border border-white/10 rounded-lg text-slate-400 hover:text-white transition-colors">Cancel</button>
+              <button onClick={()=>setRateTarget(null)} className="flex-1 py-2.5 min-h-[44px] text-xs border border-white/10 rounded-lg text-slate-400 hover:text-white transition-colors">Cancel</button>
               <button onClick={saveRating} disabled={rateSaving}
-                className="flex-1 py-2 text-xs font-medium bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-black rounded-lg transition-colors">
+                className="flex-1 py-2.5 min-h-[44px] text-xs font-medium bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-black rounded-lg transition-colors">
                 {rateSaving?'Saving…':'Save Rating'}
               </button>
             </div>
@@ -475,16 +475,16 @@ export default function Fleet() {
 
       {/* ── VEHICLE FORM MODAL ── */}
       {showVForm&&(
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-start justify-center pt-6 pb-4 px-4 overflow-y-auto">
-          <div className="w-full max-w-2xl bg-[#1a1d27] rounded-2xl border border-white/10 shadow-2xl">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-white/5">
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-start justify-center pt-0 sm:pt-6 pb-0 sm:pb-4 px-0 sm:px-4 overflow-y-auto">
+          <div className="w-full sm:max-w-2xl bg-[#1a1d27] sm:rounded-2xl border-0 sm:border border-white/10 shadow-2xl min-h-screen sm:min-h-0 sm:my-4">
+            <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-white/5">
               <h2 className="text-sm font-bold text-white">{editVId?'Edit Vehicle':'Add Vehicle'}</h2>
-              <button onClick={()=>setShowVForm(false)} className="p-1 text-slate-400 hover:text-white">
+              <button onClick={()=>setShowVForm(false)} className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center text-slate-400 hover:text-white">
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg>
               </button>
             </div>
-            <div className="p-6 space-y-4">
-              <div className="grid grid-cols-2 gap-3">
+            <div className="p-4 sm:p-6 space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <FIn label="Plate Number" required value={vForm.plateNumber} onChange={(e:any)=>vf('plateNumber',e.target.value)} placeholder="e.g. KSA-1234"/>
                 <FSel label="Vehicle Type" value={vForm.vehicleType} onChange={(e:any)=>vf('vehicleType',e.target.value)}>
                   {['truck_3ton','truck_7ton','truck_10ton','truck_20ton','trailer','van','pickup'].map(t=><option key={t} value={t}>{t.replace(/_/g,' ')}</option>)}
@@ -513,10 +513,10 @@ export default function Fleet() {
                 )}
               </div>
             </div>
-            <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-white/5">
-              <button onClick={()=>setShowVForm(false)} className="px-4 py-2 text-xs text-slate-400 hover:text-white transition-colors">Cancel</button>
+            <div className="flex items-center justify-end gap-3 px-4 sm:px-6 py-4 border-t border-white/5">
+              <button onClick={()=>setShowVForm(false)} className="px-4 py-2.5 min-h-[44px] text-xs text-slate-400 hover:text-white transition-colors">Cancel</button>
               <button onClick={handleVSave} disabled={vSaving}
-                className="px-5 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-xs font-semibold rounded-lg transition-colors">
+                className="px-5 py-2.5 min-h-[44px] bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-xs font-semibold rounded-lg transition-colors">
                 {vSaving?'Saving…':editVId?'Save Changes':'Add Vehicle'}
               </button>
             </div>
@@ -526,17 +526,17 @@ export default function Fleet() {
 
       {/* ── DRIVER FORM MODAL ── */}
       {showDForm&&(
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-start justify-center pt-6 pb-4 px-4 overflow-y-auto">
-          <div className="w-full max-w-2xl bg-[#1a1d27] rounded-2xl border border-white/10 shadow-2xl">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-white/5">
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-start justify-center pt-0 sm:pt-6 pb-0 sm:pb-4 px-0 sm:px-4 overflow-y-auto">
+          <div className="w-full sm:max-w-2xl bg-[#1a1d27] sm:rounded-2xl border-0 sm:border border-white/10 shadow-2xl min-h-screen sm:min-h-0 sm:my-4">
+            <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-white/5">
               <h2 className="text-sm font-bold text-white">{editDId?'Edit Driver':'Add Driver'}</h2>
-              <button onClick={()=>setShowDForm(false)} className="p-1 text-slate-400 hover:text-white">
+              <button onClick={()=>setShowDForm(false)} className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center text-slate-400 hover:text-white">
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg>
               </button>
             </div>
-            <div className="p-6 space-y-4">
+            <div className="p-4 sm:p-6 space-y-4">
               <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Personal Details</p>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <FIn label="First Name" required value={dForm.firstName} onChange={(e:any)=>df('firstName',e.target.value)}/>
                 <FIn label="Last Name" required value={dForm.lastName} onChange={(e:any)=>df('lastName',e.target.value)}/>
                 <FIn label="Email" type="email" value={dForm.email} onChange={(e:any)=>df('email',e.target.value)}/>
@@ -545,12 +545,12 @@ export default function Fleet() {
                 <FIn label="ID / Iqama Number" value={dForm.idNumber} onChange={(e:any)=>df('idNumber',e.target.value)}/>
                 <FDate label="Date of Birth" value={dForm.dateOfBirth} onChange={(e:any)=>df('dateOfBirth',e.target.value)}/>
                 <FDate label="Hire Date" value={dForm.hireDate} onChange={(e:any)=>df('hireDate',e.target.value)}/>
-                <div className="col-span-2"><FIn label="Address" value={dForm.address} onChange={(e:any)=>df('address',e.target.value)}/></div>
+                <div className="col-span-full"><FIn label="Address" value={dForm.address} onChange={(e:any)=>df('address',e.target.value)}/></div>
                 <FIn label="Emergency Contact Name" value={dForm.emergencyContactName} onChange={(e:any)=>df('emergencyContactName',e.target.value)}/>
                 <FIn label="Emergency Contact Phone" value={dForm.emergencyContactPhone} onChange={(e:any)=>df('emergencyContactPhone',e.target.value)}/>
               </div>
               <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mt-2">License Details</p>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <FIn label="License Number" required value={dForm.licenseNumber} onChange={(e:any)=>df('licenseNumber',e.target.value)}/>
                 <FSel label="License Type" value={dForm.licenseType} onChange={(e:any)=>df('licenseType',e.target.value)}>
                   {['light','heavy','trailer','motorcycle'].map(t=><option key={t} value={t}>{t.charAt(0).toUpperCase()+t.slice(1)}</option>)}
@@ -569,10 +569,10 @@ export default function Fleet() {
                 )}
               </div>
             </div>
-            <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-white/5">
-              <button onClick={()=>setShowDForm(false)} className="px-4 py-2 text-xs text-slate-400 hover:text-white transition-colors">Cancel</button>
+            <div className="flex items-center justify-end gap-3 px-4 sm:px-6 py-4 border-t border-white/5">
+              <button onClick={()=>setShowDForm(false)} className="px-4 py-2.5 min-h-[44px] text-xs text-slate-400 hover:text-white transition-colors">Cancel</button>
               <button onClick={handleDSave} disabled={dSaving}
-                className="px-5 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-xs font-semibold rounded-lg transition-colors">
+                className="px-5 py-2.5 min-h-[44px] bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-xs font-semibold rounded-lg transition-colors">
                 {dSaving?'Saving…':editDId?'Save Changes':'Add Driver'}
               </button>
             </div>

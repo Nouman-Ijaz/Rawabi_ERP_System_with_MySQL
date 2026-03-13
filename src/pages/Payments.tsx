@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 
 import { loadJsPDF } from '@/lib/pdf';
 import { fmtSAR, fmtDate, today } from '@/lib/format';
+import Modal, { ModalFooter } from '@/components/Modal';
 
 // ── jsPDF CDN loader ───────────────────────────────────────────────
 
@@ -260,20 +261,20 @@ export default function Payments() {
   return (
     <div className="space-y-5">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-xl font-bold text-white">Payments</h1>
           <p className="text-xs text-slate-500 mt-0.5">{payments.length} recorded · Total collected {fmtSAR(totalCollected)}</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <button onClick={downloadAllPdf} disabled={pdfBusy || loading || payments.length === 0}
-            className="flex items-center gap-1.5 px-3 py-2 bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 hover:text-white text-xs font-medium rounded-lg transition-colors disabled:opacity-40">
+            className="flex items-center gap-1.5 px-3 py-2 min-h-[44px] bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 hover:text-white text-xs font-medium rounded-lg transition-colors disabled:opacity-40">
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
             {pdfBusy ? 'Generating…' : 'Download All PDF'}
           </button>
           {canEdit && (
             <button onClick={() => { resetForm(); setShowCreate(true); }}
-              className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-lg transition-colors">
+              className="flex items-center gap-2 px-4 py-2 min-h-[44px] bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-lg transition-colors">
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4"/></svg>
               Record Payment
             </button>
@@ -282,7 +283,7 @@ export default function Payments() {
       </div>
 
       {/* Summary cards */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         {[
           { label: 'Total Collected', value: fmtSAR(totalCollected), color: 'text-emerald-400', icon: 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z' },
           { label: 'This Month', value: fmtSAR(payments.filter(p => p.payment_date?.startsWith(new Date().toISOString().slice(0,7))).reduce((s,p) => s + Number(p.amount), 0)), color: 'text-blue-400', icon: 'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z' },
@@ -299,7 +300,7 @@ export default function Payments() {
       </div>
 
       {/* Date filters */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 flex-wrap">
         <input type="date" value={from} onChange={e => setFrom(e.target.value)}
           style={{ colorScheme: 'dark' }}
           className="px-3 py-2 text-xs bg-[#1a1d27] border border-white/10 rounded-lg text-white focus:outline-none focus:border-blue-500/40 [&::-webkit-calendar-picker-indicator]:opacity-80" />
@@ -354,16 +355,23 @@ export default function Payments() {
       </div>
 
       {/* ── CREATE MODAL ── */}
-      {showCreate && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="w-full max-w-lg bg-[#1a1d27] rounded-2xl border border-white/10 shadow-2xl">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-white/5">
-              <h2 className="text-sm font-bold text-white">Record Payment</h2>
-              <button onClick={() => setShowCreate(false)} className="p-1 text-slate-400 hover:text-white">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg>
-              </button>
-            </div>
-            <div className="p-6 space-y-4">
+      <Modal
+        open={showCreate}
+        onClose={() => setShowCreate(false)}
+        title="Record Payment"
+        variant="sheet"
+        maxWidth="sm:max-w-lg"
+        footer={
+          <ModalFooter
+            onClose={() => setShowCreate(false)}
+            onSave={handleCreate}
+            saving={saving}
+            saveDisabled={!invoiceId || !amount}
+            saveLabel={`Record SAR ${Number(amount || 0).toFixed(2)}`}
+          />
+        }
+      >
+        <div className="p-4 sm:p-6 space-y-4">
 
               {/* Invoice selection */}
               <DSel label="Invoice" value={invoiceId} onChange={(e: any) => handleInvoicePick(e.target.value)}>
@@ -407,36 +415,35 @@ export default function Payments() {
               </div>
 
               <DTA label="Notes" value={notes} onChange={(e: any) => setNotes(e.target.value)} rows={2} placeholder="Optional notes..." />
-            </div>
-            <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-white/5">
-              <button onClick={() => setShowCreate(false)} className="px-4 py-2 text-xs text-slate-400 hover:text-white transition-colors">Cancel</button>
-              <button onClick={handleCreate} disabled={saving || !invoiceId || !amount}
-                className="px-5 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs font-semibold rounded-lg transition-colors">
-                {saving ? 'Saving...' : `Record SAR ${Number(amount || 0).toFixed(2)}`}
-              </button>
-            </div>
-          </div>
         </div>
-      )}
+      </Modal>
 
       {/* ── PAYMENT DETAIL MODAL ── */}
-      {viewPayment && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="w-full max-w-lg bg-[#1a1d27] rounded-2xl border border-white/10 shadow-2xl">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-white/5">
-              <div>
-                <h2 className="text-sm font-bold text-white font-mono">{viewPayment.payment_number}</h2>
-                <p className="text-[11px] text-slate-500 mt-0.5">{viewPayment.customer_name}</p>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${METHOD_STYLE[viewPayment.payment_method] || 'bg-slate-500/15 text-slate-400'}`}>
-                  {(viewPayment.payment_method || '').replace('_', ' ')}
-                </span>
-                <button onClick={() => setViewPayment(null)} className="p-1 text-slate-400 hover:text-white ml-1">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg>
-                </button>
-              </div>
-            </div>
+      <Modal
+        open={!!viewPayment}
+        onClose={() => setViewPayment(null)}
+        title={viewPayment?.payment_number || ''}
+        subtitle={viewPayment?.customer_name}
+        variant="sheet"
+        maxWidth="sm:max-w-lg"
+        headerActions={viewPayment ? (
+          <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${METHOD_STYLE[viewPayment.payment_method] || 'bg-slate-500/15 text-slate-400'}`}>
+            {(viewPayment.payment_method || '').replace('_', ' ')}
+          </span>
+        ) : undefined}
+        footer={
+          <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-t border-white/5 bg-[#1a1d27] flex-shrink-0">
+            <button onClick={() => viewPayment && printSinglePdf(viewPayment)} disabled={pdfBusy}
+              className="flex items-center gap-1.5 px-4 py-2 min-h-[44px] bg-blue-600/15 hover:bg-blue-600/30 text-blue-400 text-xs font-medium rounded-lg transition-colors disabled:opacity-40">
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
+              {pdfBusy ? 'Generating…' : 'Print Receipt PDF'}
+            </button>
+            <button onClick={() => setViewPayment(null)} className="px-4 py-2 min-h-[44px] text-xs text-slate-400 hover:text-white transition-colors">Close</button>
+          </div>
+        }
+      >
+        {viewPayment && (
+          <>
             {/* Amount hero */}
             <div className="px-6 py-4 bg-emerald-500/5 border-b border-white/5">
               <p className="text-[10px] text-slate-500 uppercase tracking-wide mb-1">Amount Paid</p>
@@ -465,17 +472,9 @@ export default function Payments() {
                 </div>
               )}
             </div>
-            <div className="flex items-center justify-between px-6 py-4 border-t border-white/5">
-              <button onClick={() => printSinglePdf(viewPayment)} disabled={pdfBusy}
-                className="flex items-center gap-1.5 px-4 py-2 bg-blue-600/15 hover:bg-blue-600/30 text-blue-400 text-xs font-medium rounded-lg transition-colors disabled:opacity-40">
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
-                {pdfBusy ? 'Generating…' : 'Print Receipt PDF'}
-              </button>
-              <button onClick={() => setViewPayment(null)} className="px-4 py-2 text-xs text-slate-400 hover:text-white transition-colors">Close</button>
-            </div>
-          </div>
-        </div>
-      )}
+          </>
+        )}
+      </Modal>
     </div>
   );
 }

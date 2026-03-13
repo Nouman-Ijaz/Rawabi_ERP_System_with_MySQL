@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import { fmtDate, fmtSAR } from '@/lib/format';
 import { inp, sel } from '@/lib/cx';
 import FormField from '@/components/FormField';
+import Modal, { ModalFooter, ConfirmModal } from '@/components/Modal';
 
 // ── jsPDF CDN loader ───────────────────────────────────────────────
 
@@ -262,20 +263,20 @@ export default function Maintenance() {
   return (
     <div className="space-y-5">
 
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-xl font-bold text-white">Maintenance</h1>
           <p className="text-xs text-slate-500 mt-0.5">{loading ? '…' : `${records.length} record${records.length !== 1 ? 's' : ''}`}</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <button onClick={downloadAllPdf} disabled={pdfBusy || loading || records.length === 0}
-            className="flex items-center gap-1.5 px-3 py-2 bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 hover:text-white text-xs font-medium rounded-lg transition-colors disabled:opacity-40">
+            className="flex items-center gap-1.5 px-3 py-2 min-h-[44px] bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 hover:text-white text-xs font-medium rounded-lg transition-colors disabled:opacity-40">
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
             {pdfBusy ? 'Generating…' : 'Download All PDF'}
           </button>
           {canEdit && (
             <button onClick={openCreate}
-              className="flex items-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium rounded-lg transition-colors">
+              className="flex items-center gap-2 px-3 py-2 min-h-[44px] bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium rounded-lg transition-colors">
               <Icon name="plus" className="w-3.5 h-3.5" /> Log Maintenance
             </button>
           )}
@@ -406,7 +407,7 @@ export default function Maintenance() {
       {showForm && (
         <div className="fixed inset-0 z-50 flex">
           <div className="flex-1 bg-black/50 backdrop-blur-sm" onClick={closeForm} />
-          <div className="w-full max-w-lg bg-[#0d0f14] border-l border-white/5 flex flex-col h-full overflow-hidden">
+          <div className="w-full sm:max-w-lg bg-[#0d0f14] sm:border-l border-t sm:border-t-0 border-white/5 flex flex-col mt-auto sm:mt-0 sm:h-full max-h-[95vh] sm:max-h-full rounded-t-2xl sm:rounded-none overflow-hidden">
             <div className="flex items-center justify-between px-6 py-4 border-b border-white/5">
               <h2 className="text-sm font-semibold text-white">{editId ? 'Edit Record' : 'Log Maintenance'}</h2>
               <button onClick={closeForm} className="p-1.5 rounded-md hover:bg-white/5 text-slate-400 hover:text-white transition-colors">
@@ -473,37 +474,42 @@ export default function Maintenance() {
       )}
 
       {/* Delete Confirm */}
-      {deleteId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="bg-[#1a1d27] rounded-xl border border-white/10 p-6 w-full max-w-sm shadow-2xl">
-            <h3 className="text-sm font-semibold text-white mb-2">Delete Record</h3>
-            <p className="text-xs text-slate-400 mb-5">This maintenance record will be permanently deleted.</p>
-            <div className="flex gap-3">
-              <button onClick={() => setDeleteId(null)} className="flex-1 py-2 text-xs border border-white/10 rounded-lg text-slate-400 hover:text-white transition-colors">Cancel</button>
-              <button onClick={confirmDelete} className="flex-1 py-2 text-xs bg-red-600 hover:bg-red-500 text-white rounded-lg transition-colors">Delete</button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmModal
+        open={!!deleteId}
+        onClose={() => setDeleteId(null)}
+        title="Delete Record"
+        message="This maintenance record will be permanently deleted."
+        confirmLabel="Delete"
+        variant="danger"
+        onConfirm={confirmDelete}
+      />
 
       {/* ── RECORD DETAIL MODAL ── */}
-      {viewRecord && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="w-full max-w-lg bg-[#1a1d27] rounded-2xl border border-white/10 shadow-2xl">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-white/5">
-              <div>
-                <h2 className="text-sm font-bold text-white font-mono">{viewRecord.vehicle_plate}</h2>
-                <p className="text-[11px] text-slate-500 mt-0.5 capitalize">{(viewRecord.maintenance_type || '').replace('_',' ')} · {fmtDate(viewRecord.service_date)}</p>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium capitalize ${MAINTENANCE_STATUS[viewRecord.status] || 'bg-slate-500/15 text-slate-400'}`}>
-                  {(viewRecord.status || '').replace('_',' ')}
-                </span>
-                <button onClick={() => setViewRecord(null)} className="p-1 text-slate-400 hover:text-white ml-1">
-                  <Icon name="x" className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
+      <Modal
+        open={!!viewRecord}
+        onClose={() => setViewRecord(null)}
+        title={viewRecord?.vehicle_plate || ''}
+        subtitle={viewRecord ? `${(viewRecord.maintenance_type || '').replace('_',' ')} · ${fmtDate(viewRecord.service_date)}` : undefined}
+        variant="sheet"
+        maxWidth="sm:max-w-lg"
+        headerActions={viewRecord ? (
+          <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium capitalize ${MAINTENANCE_STATUS[viewRecord.status] || 'bg-slate-500/15 text-slate-400'}`}>
+            {(viewRecord.status || '').replace('_',' ')}
+          </span>
+        ) : undefined}
+        footer={
+          <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-t border-white/5 bg-[#1a1d27] flex-shrink-0">
+            <button onClick={() => viewRecord && printSinglePdf(viewRecord)} disabled={pdfBusy}
+              className="flex items-center gap-1.5 px-4 py-2 min-h-[44px] bg-blue-600/15 hover:bg-blue-600/30 text-blue-400 text-xs font-medium rounded-lg transition-colors disabled:opacity-40">
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
+              {pdfBusy ? 'Generating…' : 'Print Record PDF'}
+            </button>
+            <button onClick={() => setViewRecord(null)} className="px-4 py-2 min-h-[44px] text-xs text-slate-400 hover:text-white transition-colors">Close</button>
+          </div>
+        }
+      >
+        {viewRecord && (
+          <>
             {viewRecord.cost && (
               <div className="px-6 py-4 bg-blue-500/5 border-b border-white/5">
                 <p className="text-[10px] text-slate-500 uppercase tracking-wide mb-1">Total Cost</p>
@@ -545,17 +551,9 @@ export default function Maintenance() {
                 </div>
               )}
             </div>
-            <div className="flex items-center justify-between px-6 py-4 border-t border-white/5">
-              <button onClick={() => printSinglePdf(viewRecord)} disabled={pdfBusy}
-                className="flex items-center gap-1.5 px-4 py-2 bg-blue-600/15 hover:bg-blue-600/30 text-blue-400 text-xs font-medium rounded-lg transition-colors disabled:opacity-40">
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
-                {pdfBusy ? 'Generating…' : 'Print Record PDF'}
-              </button>
-              <button onClick={() => setViewRecord(null)} className="px-4 py-2 text-xs text-slate-400 hover:text-white transition-colors">Close</button>
-            </div>
-          </div>
-        </div>
-      )}
+          </>
+        )}
+      </Modal>
     </div>
   );
 }

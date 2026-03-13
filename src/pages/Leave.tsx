@@ -9,6 +9,7 @@ import { ROLES } from '@/lib/roles';
 import { LEAVE_STATUS } from '@/lib/statusStyles';
 import { inp, sel } from '@/lib/cx';
 import FormField from '@/components/FormField';
+import Modal, { ModalFooter } from '@/components/Modal';
 
 // STATUS_STYLE is now LEAVE_STATUS imported from statusStyles.ts
 const STATUS_STYLE = LEAVE_STATUS;
@@ -208,7 +209,7 @@ export default function Leave() {
     <div className="space-y-5">
 
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold text-white">Leave Management</h1>
           <p className="text-xs text-slate-500 mt-0.5">
@@ -218,7 +219,7 @@ export default function Leave() {
           </p>
         </div>
         <button onClick={() => setShowCreate(true)}
-          className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold rounded-lg transition-colors">
+          className="flex items-center gap-1.5 px-4 py-2.5 min-h-[44px] bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold rounded-lg transition-colors">
           <Icon name="plus" className="w-3.5 h-3.5" />
           New Request
         </button>
@@ -235,13 +236,15 @@ export default function Leave() {
       )}
 
       {/* Tabs */}
-      <div className="flex gap-1 bg-[#1a1d27] rounded-lg p-1 border border-white/5 w-fit">
+      <div className="overflow-x-auto pb-0.5"><div className="flex gap-1 bg-[#1a1d27] rounded-lg p-1 border border-white/5 w-fit min-w-max">
         {([['requests', 'Requests'], ['balances', 'Balances'], ['calendar', 'Upcoming']] as [Tab, string][]).map(([t, label]) => (
           <button key={t} onClick={() => setTab(t)}
-            className={`px-4 py-1.5 text-xs font-medium rounded-md transition-colors ${tab === t ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'}`}>
+            className={`px-4 py-2.5 min-h-[44px] text-xs font-medium rounded-md transition-colors ${tab === t ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'}`}>
             {label}
           </button>
         ))}
+      </div>
+
       </div>
 
       {/* ── REQUESTS TAB ── */}
@@ -269,9 +272,15 @@ export default function Leave() {
               <table className="w-full text-xs">
                 <thead>
                   <tr className="border-b border-white/5">
-                    {['Request #','Employee','Type','Start','End','Days','Status','Applied','Actions'].map(h => (
-                      <th key={h} className="px-4 py-3 text-left text-[11px] font-medium text-slate-500 whitespace-nowrap">{h}</th>
-                    ))}
+                    <th className="px-4 py-3 text-left text-[11px] font-medium text-slate-500 whitespace-nowrap">Request #</th>
+                    <th className="px-4 py-3 text-left text-[11px] font-medium text-slate-500 whitespace-nowrap hidden sm:table-cell">Employee</th>
+                    <th className="px-4 py-3 text-left text-[11px] font-medium text-slate-500 whitespace-nowrap">Type</th>
+                    <th className="px-4 py-3 text-left text-[11px] font-medium text-slate-500 whitespace-nowrap hidden md:table-cell">Start</th>
+                    <th className="px-4 py-3 text-left text-[11px] font-medium text-slate-500 whitespace-nowrap hidden md:table-cell">End</th>
+                    <th className="px-4 py-3 text-left text-[11px] font-medium text-slate-500 whitespace-nowrap">Days</th>
+                    <th className="px-4 py-3 text-left text-[11px] font-medium text-slate-500 whitespace-nowrap">Status</th>
+                    <th className="px-4 py-3 text-left text-[11px] font-medium text-slate-500 whitespace-nowrap hidden lg:table-cell">Applied</th>
+                    <th className="px-4 py-3 text-left text-[11px] font-medium text-slate-500 whitespace-nowrap">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -282,7 +291,7 @@ export default function Leave() {
                   ) : filtered.map(r => (
                     <tr key={r.id} className="border-b border-white/5 hover:bg-white/5 transition-colors group">
                       <td className="px-4 py-3 font-mono text-blue-400 font-medium">{r.request_number}</td>
-                      <td className="px-4 py-3 text-white font-medium whitespace-nowrap">
+                      <td className="px-4 py-3 text-white font-medium whitespace-nowrap hidden sm:table-cell">
                         {r.first_name} {r.last_name}
                         <div className="text-[10px] text-slate-500">{r.employee_code}</div>
                       </td>
@@ -292,17 +301,17 @@ export default function Leave() {
                           <span className="text-slate-300">{r.leave_type_name}</span>
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-slate-400 whitespace-nowrap">{fmtDate(r.start_date)}</td>
-                      <td className="px-4 py-3 text-slate-400 whitespace-nowrap">{fmtDate(r.end_date)}</td>
+                      <td className="px-4 py-3 text-slate-400 whitespace-nowrap hidden md:table-cell">{fmtDate(r.start_date)}</td>
+                      <td className="px-4 py-3 text-slate-400 whitespace-nowrap hidden md:table-cell">{fmtDate(r.end_date)}</td>
                       <td className="px-4 py-3 text-white font-bold">{r.total_days}</td>
                       <td className="px-4 py-3">
                         <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${STATUS_STYLE[r.status] || 'bg-slate-500/15 text-slate-400'}`}>
                           {r.status}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-slate-500 whitespace-nowrap">{fmtDate(r.applied_at)}</td>
+                      <td className="px-4 py-3 text-slate-500 whitespace-nowrap hidden lg:table-cell">{fmtDate(r.applied_at)}</td>
                       <td className="px-4 py-3">
-                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="flex items-center gap-1">
                           <button onClick={() => { setSelected(r); setReviewNotes(''); }}
                             className="p-1.5 rounded-md hover:bg-blue-500/15 text-slate-500 hover:text-blue-400 transition-colors" title="View">
                             <Icon name="eye" className="w-3.5 h-3.5" />
@@ -463,16 +472,22 @@ export default function Leave() {
       )}
 
       {/* ── CREATE MODAL ── */}
-      {showCreate && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="w-full max-w-lg bg-[#1a1d27] rounded-2xl border border-white/10 shadow-2xl">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-white/5">
-              <h2 className="text-sm font-bold text-white">New Leave Request</h2>
-              <button onClick={() => setShowCreate(false)} className="p-1 text-slate-400 hover:text-white">
-                <Icon name="x" className="w-4 h-4" />
-              </button>
-            </div>
-            <div className="p-6 space-y-4">
+      <Modal
+        open={showCreate}
+        onClose={() => setShowCreate(false)}
+        title="New Leave Request"
+        variant="sheet"
+        maxWidth="sm:max-w-lg"
+        footer={
+          <ModalFooter
+            onClose={() => setShowCreate(false)}
+            onSave={handleCreate}
+            saving={saving}
+            saveLabel="Submit Request"
+          />
+        }
+      >
+        <div className="p-4 sm:p-6 space-y-4">
               {/* Employee field — management sees dropdown (can submit for anyone or self);
                   super_admin is exempt from their own leave (top of hierarchy);
                   non-management see their own name read-only */}
@@ -519,7 +534,7 @@ export default function Leave() {
                   {types.map(t => <option key={t.id} value={t.id}>{t.name} {t.days_per_year > 0 ? `(${t.days_per_year} days/yr)` : ''}</option>)}
                 </select>
               </Field>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <Field label="Start Date *">
                   <input type="date" value={form.start_date} onChange={e => setForm(p => ({ ...p, start_date: e.target.value }))}
                     style={{ colorScheme: 'dark' }} className={inp} />
@@ -539,33 +554,28 @@ export default function Leave() {
                 <textarea value={form.reason} onChange={e => setForm(p => ({ ...p, reason: e.target.value }))}
                   rows={2} className={inp + ' resize-none'} placeholder="Brief description..." />
               </Field>
-            </div>
-            <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-white/5">
-              <button onClick={() => setShowCreate(false)} className="px-4 py-2 text-xs text-slate-400 hover:text-white transition-colors">Cancel</button>
-              <button onClick={handleCreate} disabled={saving}
-                className="px-5 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-xs font-semibold rounded-lg transition-colors">
-                {saving ? 'Submitting…' : 'Submit Request'}
-              </button>
-            </div>
-          </div>
         </div>
-      )}
+      </Modal>
 
       {/* ── DETAIL / REVIEW MODAL ── */}
-      {selected && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="w-full max-w-lg bg-[#1a1d27] rounded-2xl border border-white/10 shadow-2xl">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-white/5">
-              <div>
-                <h2 className="text-sm font-bold text-white font-mono">{selected.request_number}</h2>
-                <p className="text-[11px] text-slate-500 mt-0.5">{selected.first_name} {selected.last_name} · {selected.employee_code}</p>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${STATUS_STYLE[selected.status]}`}>{selected.status}</span>
-                <button onClick={() => setSelected(null)} className="p-1 text-slate-400 hover:text-white"><Icon name="x" className="w-4 h-4" /></button>
-              </div>
-            </div>
-            <div className="p-6 space-y-4">
+      <Modal
+        open={!!selected}
+        onClose={() => setSelected(null)}
+        title={selected?.request_number || ''}
+        subtitle={selected ? `${selected.first_name} ${selected.last_name} · ${selected.employee_code}` : undefined}
+        variant="sheet"
+        maxWidth="sm:max-w-lg"
+        headerActions={selected ? (
+          <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${STATUS_STYLE[selected.status]}`}>{selected.status}</span>
+        ) : undefined}
+        footer={
+          <div className="flex justify-end px-4 sm:px-6 py-4 border-t border-white/5 bg-[#1a1d27] flex-shrink-0">
+            <button onClick={() => setSelected(null)} className="px-4 py-2.5 min-h-[44px] text-xs text-slate-400 hover:text-white transition-colors">Close</button>
+          </div>
+        }
+      >
+        {selected && (
+          <div className="p-4 sm:p-6 space-y-4">
               <div className="grid grid-cols-2 gap-3">
                 {([
                   ['Leave Type',  selected.leave_type_name],
@@ -612,13 +622,9 @@ export default function Leave() {
                   </div>
                 </>
               )}
-            </div>
-            <div className="flex justify-end px-6 py-4 border-t border-white/5">
-              <button onClick={() => setSelected(null)} className="px-4 py-2 text-xs text-slate-400 hover:text-white transition-colors">Close</button>
-            </div>
           </div>
-        </div>
-      )}
+        )}
+      </Modal>
     </div>
   );
 }

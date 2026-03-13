@@ -102,6 +102,18 @@ export default function MainLayout() {
     return () => clearInterval(t);
   }, []);
 
+  // Lock body scroll when mobile sidebar is open
+  useEffect(() => {
+    document.body.style.overflow = sidebarOpen ? 'hidden' : '';
+    return () => { document.body.style.overflow = ''; };
+  }, [sidebarOpen]);
+
+  // Auto-close sidebar on route change (handles in-app navigation on mobile)
+  useEffect(() => {
+    setSidebarOpen(false);
+  }, [location.pathname]);
+
+  // Close notification panel on outside click
   useEffect(() => {
     const fn = (e: MouseEvent) => {
       if (bellRef.current && !bellRef.current.contains(e.target as Node)) setNotifOpen(false);
@@ -115,12 +127,19 @@ export default function MainLayout() {
   const urgentCount = notifications.filter(n => n.priority === 'high').length;
   const badgeColor  = urgentCount > 0 ? 'bg-red-500' : 'bg-blue-500';
 
+  // Friendly page label for mobile breadcrumb
+  const currentPage = location.pathname.split('/')[1]?.replace(/-/g, ' ') || 'dashboard';
+
   return (
   <>
     <div className="min-h-screen bg-[#0f1117] text-white flex">
+
+      {/* Mobile overlay */}
       {sidebarOpen && (
-        <div className="fixed inset-0 bg-black/60 z-40 lg:hidden backdrop-blur-sm"
-          onClick={() => setSidebarOpen(false)} />
+        <div
+          className="fixed inset-0 bg-black/60 z-40 lg:hidden backdrop-blur-sm"
+          onClick={() => setSidebarOpen(false)}
+        />
       )}
 
       {/* ── SIDEBAR ──────────────────────────────────── */}
@@ -140,7 +159,11 @@ export default function MainLayout() {
             <p className="font-bold text-sm text-white leading-none">Rawabi</p>
             <p className="text-[11px] text-slate-500 mt-0.5">Logistics ERP</p>
           </div>
-          <button onClick={() => setSidebarOpen(false)} className="lg:hidden ml-auto p-1 text-slate-500 hover:text-white">
+          {/* Close button — mobile only, large touch target */}
+          <button
+            onClick={() => setSidebarOpen(false)}
+            className="lg:hidden ml-auto p-2 min-h-[44px] min-w-[44px] flex items-center justify-center text-slate-500 hover:text-white rounded-lg transition-colors"
+          >
             <Icon name="x" className="w-4 h-4" />
           </button>
         </div>
@@ -165,12 +188,16 @@ export default function MainLayout() {
           {filteredNav.map(item => {
             const active = location.pathname === item.href || location.pathname.startsWith(item.href + '/');
             return (
-              <Link key={item.name} to={item.href} onClick={() => setSidebarOpen(false)}
-                className={`flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium transition-all duration-150 group border
+              <Link
+                key={item.name}
+                to={item.href}
+                onClick={() => setSidebarOpen(false)}
+                className={`flex items-center gap-3 px-3 py-2.5 min-h-[44px] rounded-lg text-xs font-medium transition-all duration-150 group border
                   ${active
                     ? 'bg-blue-600/20 text-blue-400 border-blue-500/20'
                     : 'text-slate-400 hover:bg-white/5 hover:text-slate-200 border-transparent'
-                  }`}>
+                  }`}
+              >
                 <Icon name={item.icon} className={`w-4 h-4 flex-shrink-0 ${active ? 'text-blue-400' : 'text-slate-500 group-hover:text-slate-300'}`} />
                 <span>{item.name}</span>
                 {active && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-blue-400" />}
@@ -179,37 +206,46 @@ export default function MainLayout() {
           })}
         </nav>
 
-        {/* Nav bottom spacer */}
         <div className="h-3" />
       </aside>
 
       {/* ── MAIN ─────────────────────────────────────── */}
-      <div className="lg:ml-[220px] flex-1 flex flex-col min-h-screen">
+      {/* min-w-0 prevents flex child from overflowing on mobile */}
+      <div className="lg:ml-[220px] flex-1 flex flex-col min-h-screen min-w-0">
 
         {/* Header */}
-        <header className="sticky top-0 z-30 bg-[#0f1117]/90 backdrop-blur-md border-b border-white/5 px-4 sm:px-6 h-14 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <button onClick={() => setSidebarOpen(true)} className="lg:hidden p-2 text-slate-400 hover:text-white">
+        <header className="sticky top-0 z-30 bg-[#0f1117]/90 backdrop-blur-md border-b border-white/5 px-4 sm:px-6 h-14 flex items-center justify-between gap-2">
+
+          {/* Left: hamburger + breadcrumb */}
+          <div className="flex items-center gap-2 min-w-0">
+            <button
+              onClick={() => setSidebarOpen(true)}
+              className="lg:hidden p-2 -ml-1 min-h-[44px] min-w-[44px] flex items-center justify-center text-slate-400 hover:text-white rounded-lg hover:bg-white/5 transition-colors flex-shrink-0"
+              aria-label="Open menu"
+            >
               <Icon name="menu" className="w-5 h-5" />
             </button>
-            <div className="hidden sm:flex items-center gap-1.5 text-xs text-slate-500">
-              <span>Rawabi ERP</span>
-              <span>/</span>
-              <span className="text-slate-300 capitalize">{location.pathname.split('/')[1] || 'dashboard'}</span>
+            <div className="flex items-center gap-1.5 text-xs text-slate-500 min-w-0">
+              {/* "Rawabi ERP /" hidden on tiny screens to save space */}
+              <span className="hidden sm:inline shrink-0">Rawabi ERP</span>
+              <span className="hidden sm:inline shrink-0">/</span>
+              <span className="text-slate-300 capitalize truncate">{currentPage}</span>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          {/* Right: notifications + user */}
+          <div className="flex items-center gap-2 flex-shrink-0">
 
-            {/* Bell + count pill */}
+            {/* Bell */}
             <div ref={bellRef} className="relative">
               <button
                 onClick={() => { setNotifOpen(o => !o); if (!notifOpen) loadNotifications(); }}
-                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg transition-colors border ${
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 min-h-[44px] rounded-lg transition-colors border ${
                   totalCount > 0
                     ? 'bg-white/5 border-white/10 text-white hover:bg-white/10'
                     : 'border-transparent text-slate-400 hover:text-white hover:bg-white/5'
-                }`}>
+                }`}
+              >
                 <Icon name="bell" className="w-[17px] h-[17px]" />
                 {totalCount > 0 && (
                   <span className={`text-[11px] font-bold px-1.5 py-0.5 rounded-full text-white leading-none ${badgeColor}`}>
@@ -218,9 +254,9 @@ export default function MainLayout() {
                 )}
               </button>
 
-              {/* Notifications panel */}
+              {/* Notification panel — spans near-full width on mobile */}
               {notifOpen && (
-                <div className="absolute right-0 top-full mt-2 w-[340px] rounded-xl border border-white/10 bg-[#1a1d27] shadow-2xl z-50 overflow-hidden">
+                <div className="absolute right-0 top-full mt-2 w-[calc(100vw-2rem)] sm:w-[340px] max-w-[340px] rounded-xl border border-white/10 bg-[#1a1d27] shadow-2xl z-50 overflow-hidden">
 
                   <div className="flex items-center justify-between px-4 py-3 border-b border-white/5">
                     <div className="flex items-center gap-2">
@@ -233,7 +269,10 @@ export default function MainLayout() {
                     </div>
                     <div className="flex items-center gap-2">
                       {notifLoading && <div className="w-3 h-3 border border-blue-400/40 border-t-blue-400 rounded-full animate-spin" />}
-                      <button onClick={() => setNotifOpen(false)} className="p-1 rounded text-slate-400 hover:text-white hover:bg-white/5">
+                      <button
+                        onClick={() => setNotifOpen(false)}
+                        className="p-1.5 min-h-[36px] min-w-[36px] flex items-center justify-center rounded text-slate-400 hover:text-white hover:bg-white/5"
+                      >
                         <Icon name="x" className="w-3.5 h-3.5" />
                       </button>
                     </div>
@@ -248,9 +287,12 @@ export default function MainLayout() {
                       notifications.map(n => {
                         const ps = PRIORITY_STYLE[n.priority] || PRIORITY_STYLE.low;
                         return (
-                          <Link key={n.id} to={n.link || '#'}
+                          <Link
+                            key={n.id}
+                            to={n.link || '#'}
                             onClick={() => setNotifOpen(false)}
-                            className="flex items-start gap-3 px-4 py-3.5 hover:bg-white/5 transition-colors border-b border-white/5 last:border-0">
+                            className="flex items-start gap-3 px-4 py-3.5 hover:bg-white/5 transition-colors border-b border-white/5 last:border-0"
+                          >
                             <div className={`w-2 h-2 rounded-full flex-shrink-0 mt-1.5 ${ps.dot}`} />
                             <div className="flex-1 min-w-0">
                               <p className="text-xs font-semibold text-white leading-snug">{n.title}</p>
@@ -266,8 +308,10 @@ export default function MainLayout() {
                   </div>
 
                   <div className="px-4 py-2.5 border-t border-white/5">
-                    <button onClick={loadNotifications}
-                      className="text-[11px] font-medium text-blue-400 hover:text-blue-300 transition-colors">
+                    <button
+                      onClick={loadNotifications}
+                      className="text-[11px] font-medium text-blue-400 hover:text-blue-300 transition-colors"
+                    >
                       Refresh notifications
                     </button>
                   </div>
@@ -278,29 +322,29 @@ export default function MainLayout() {
             {/* User dropdown */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button className="flex items-center gap-2 pl-2 pr-3 py-1.5 rounded-lg transition-colors border border-transparent hover:bg-white/5 hover:border-white/10">
-                  <div className="w-7 h-7 rounded-full bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center text-[11px] font-bold text-white">
+                <button className="flex items-center gap-2 pl-2 pr-3 py-1.5 min-h-[44px] rounded-lg transition-colors border border-transparent hover:bg-white/5 hover:border-white/10">
+                  <div className="w-7 h-7 rounded-full bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center text-[11px] font-bold text-white flex-shrink-0">
                     {user?.firstName?.[0]}{user?.lastName?.[0]}
                   </div>
-                  <span className="hidden sm:block text-xs font-medium text-slate-300">{user?.firstName}</span>
+                  <span className="hidden sm:block text-xs font-medium text-slate-300 max-w-[80px] truncate">{user?.firstName}</span>
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-52 bg-[#1a1d27] border-white/10 text-slate-200">
                 <DropdownMenuLabel className="text-xs text-slate-400">{user?.firstName} {user?.lastName}</DropdownMenuLabel>
                 <DropdownMenuSeparator className="bg-white/10" />
-                <DropdownMenuItem onClick={() => navigate('/profile')} className="hover:bg-white/5 cursor-pointer text-xs">
+                <DropdownMenuItem onClick={() => navigate('/profile')} className="hover:bg-white/5 cursor-pointer text-xs min-h-[44px]">
                   <Icon name="user" className="w-3.5 h-3.5 mr-2" /> My Profile
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setShowChangePw(true)} className="hover:bg-white/5 cursor-pointer text-xs">
+                <DropdownMenuItem onClick={() => setShowChangePw(true)} className="hover:bg-white/5 cursor-pointer text-xs min-h-[44px]">
                   <Icon name="key" className="w-3.5 h-3.5 mr-2" /> Change Password
                 </DropdownMenuItem>
                 {hasPermission(ROLES.ADMIN_UP) && (
-                  <DropdownMenuItem onClick={() => navigate('/settings')} className="hover:bg-white/5 cursor-pointer text-xs">
+                  <DropdownMenuItem onClick={() => navigate('/settings')} className="hover:bg-white/5 cursor-pointer text-xs min-h-[44px]">
                     <Icon name="settings" className="w-3.5 h-3.5 mr-2" /> Settings
                   </DropdownMenuItem>
                 )}
                 <DropdownMenuSeparator className="bg-white/10" />
-                <DropdownMenuItem onClick={() => { logout(); toast.success('Logged out'); }} className="text-red-400 hover:bg-red-500/10 cursor-pointer text-xs">
+                <DropdownMenuItem onClick={() => { logout(); toast.success('Logged out'); }} className="text-red-400 hover:bg-red-500/10 cursor-pointer text-xs min-h-[44px]">
                   <Icon name="logout" className="w-3.5 h-3.5 mr-2" /> Sign out
                 </DropdownMenuItem>
               </DropdownMenuContent>
@@ -309,40 +353,51 @@ export default function MainLayout() {
         </header>
 
         {/* Page content */}
-        <main className="flex-1 p-4 sm:p-6 bg-[#0f1117]">
+        <main className="flex-1 p-4 sm:p-6 bg-[#0f1117] min-w-0">
           <Outlet />
         </main>
       </div>
     </div>
 
-    {/* ── CHANGE PASSWORD MODAL (all users) ──────────────── */}
+    {/* ── CHANGE PASSWORD MODAL ──────────────────────────── */}
     {showChangePw && (
-      <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-        <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => { setShowChangePw(false); setChangePwForm({ current:'', next:'', show:false }); }}/>
-        <div className="relative w-full max-w-sm bg-[#0d0f14] rounded-2xl border border-white/10 shadow-2xl p-6">
+      <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-0 sm:p-4">
+        <div
+          className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+          onClick={() => { setShowChangePw(false); setChangePwForm({ current:'', next:'', show:false }); }}
+        />
+        {/* Bottom sheet on mobile, centered dialog on sm+ */}
+        <div className="relative w-full sm:max-w-sm bg-[#0d0f14] rounded-t-2xl sm:rounded-2xl border border-white/10 shadow-2xl p-6 pb-10 sm:pb-6">
           <h2 className="text-sm font-semibold text-white mb-1">Change Password</h2>
           <p className="text-[11px] text-slate-500 mb-5">Enter your current password to set a new one.</p>
           <div className="space-y-3">
             <div>
               <label className="block text-[11px] font-medium text-slate-400 mb-1">Current Password</label>
-              <input type={changePwForm.show ? 'text' : 'password'}
+              <input
+                type={changePwForm.show ? 'text' : 'password'}
                 value={changePwForm.current}
                 onChange={e => setChangePwForm(p => ({ ...p, current: e.target.value }))}
-                className="w-full bg-[#0c0e13] border border-white/10 rounded-lg px-3 py-2 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-blue-500/50 transition-colors"
+                className="w-full bg-[#0c0e13] border border-white/10 rounded-lg px-3 py-2.5 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-blue-500/50 transition-colors"
                 placeholder="Your current password"
-                autoComplete="current-password"/>
+                autoComplete="current-password"
+              />
             </div>
             <div>
               <label className="block text-[11px] font-medium text-slate-400 mb-1">New Password</label>
-              <input type={changePwForm.show ? 'text' : 'password'}
+              <input
+                type={changePwForm.show ? 'text' : 'password'}
                 value={changePwForm.next}
                 onChange={e => setChangePwForm(p => ({ ...p, next: e.target.value }))}
-                className="w-full bg-[#0c0e13] border border-white/10 rounded-lg px-3 py-2 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-blue-500/50 transition-colors"
+                className="w-full bg-[#0c0e13] border border-white/10 rounded-lg px-3 py-2.5 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-blue-500/50 transition-colors"
                 placeholder="Min 6 characters"
-                autoComplete="new-password"/>
+                autoComplete="new-password"
+              />
             </div>
-            <button type="button" onClick={() => setChangePwForm(p => ({ ...p, show: !p.show }))}
-              className="text-[11px] text-slate-500 hover:text-slate-300 transition-colors">
+            <button
+              type="button"
+              onClick={() => setChangePwForm(p => ({ ...p, show: !p.show }))}
+              className="text-[11px] text-slate-500 hover:text-slate-300 transition-colors min-h-[36px]"
+            >
               {changePwForm.show ? 'Hide passwords' : 'Show passwords'}
             </button>
           </div>
@@ -350,8 +405,10 @@ export default function MainLayout() {
             <p className="text-[11px] text-red-400 mt-2">New password must be at least 6 characters</p>
           )}
           <div className="flex gap-3 mt-5">
-            <button onClick={() => { setShowChangePw(false); setChangePwForm({ current:'', next:'', show:false }); }}
-              className="flex-1 py-2 text-xs border border-white/10 rounded-lg text-slate-400 hover:text-white transition-colors">
+            <button
+              onClick={() => { setShowChangePw(false); setChangePwForm({ current:'', next:'', show:false }); }}
+              className="flex-1 py-2.5 min-h-[44px] text-xs border border-white/10 rounded-lg text-slate-400 hover:text-white transition-colors"
+            >
               Cancel
             </button>
             <button
@@ -367,7 +424,8 @@ export default function MainLayout() {
                   toast.error(e.message || 'Failed to change password');
                 } finally { setChangePwSaving(false); }
               }}
-              className="flex-1 py-2 text-xs font-medium bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white rounded-lg transition-colors">
+              className="flex-1 py-2.5 min-h-[44px] text-xs font-medium bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white rounded-lg transition-colors"
+            >
               {changePwSaving ? 'Saving…' : 'Change Password'}
             </button>
           </div>

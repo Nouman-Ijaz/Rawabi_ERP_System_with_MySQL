@@ -434,14 +434,14 @@ export default function Invoices() {
   return (
     <div className="space-y-5">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-xl font-bold text-white">Invoices</h1>
           <p className="text-xs text-slate-500 mt-0.5">{invoices.length} total — {invoices.filter(i => i.status === 'overdue').length} overdue</p>
         </div>
         {canEdit && (
           <button onClick={() => { resetForm(); setShowCreate(true); }}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold rounded-lg transition-colors">
+            className="flex items-center gap-2 px-4 py-2 min-h-[44px] bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold rounded-lg transition-colors">
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4"/></svg>
             New Invoice
           </button>
@@ -449,8 +449,8 @@ export default function Invoices() {
       </div>
 
       {/* Filters */}
-      <div className="flex items-center gap-3">
-        <div className="relative flex-1 max-w-xs">
+      <div className="flex items-center gap-3 flex-wrap">
+        <div className="relative flex-1 min-w-[200px] max-w-xs">
           <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0"/></svg>
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search invoice or customer..."
             className="w-full pl-9 pr-4 py-2 text-xs bg-[#1a1d27] border border-white/5 rounded-lg text-white placeholder-slate-600 focus:outline-none focus:border-blue-500/40" />
@@ -514,15 +514,15 @@ export default function Invoices() {
 
       {/* ── CREATE MODAL ── */}
       {showCreate && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-start justify-center pt-8 pb-4 px-4 overflow-y-auto">
-          <div className="w-full max-w-3xl bg-[#1a1d27] rounded-2xl border border-white/10 shadow-2xl">
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-end sm:items-start justify-center sm:pt-8 pb-0 sm:pb-4 px-0 sm:px-4 overflow-y-auto">
+          <div className="w-full sm:max-w-3xl bg-[#1a1d27] rounded-t-2xl sm:rounded-2xl border border-white/10 shadow-2xl max-h-[95vh] flex flex-col overflow-hidden">
             <div className="flex items-center justify-between px-6 py-4 border-b border-white/5">
               <h2 className="text-sm font-bold text-white">Create Invoice</h2>
               <button onClick={() => setShowCreate(false)} className="p-1 text-slate-400 hover:text-white">
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg>
               </button>
             </div>
-            <div className="p-6 space-y-5">
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-5">
 
               {/* Step 1: Pick shipment */}
               <div>
@@ -543,7 +543,7 @@ export default function Invoices() {
               {/* Step 2: Invoice header */}
               <div>
                 <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-3">2 — Invoice Details</p>
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
                     <label className="block text-[11px] text-slate-500 mb-1">Invoice Date</label>
                     <input type="date" value={invoiceDate} onChange={e => handleDateChange(e.target.value)}
@@ -629,10 +629,10 @@ export default function Invoices() {
               <DTA label="Notes (optional)" value={notes} onChange={(e: any) => setNotes(e.target.value)} rows={2} placeholder="Payment instructions, thank-you note, etc." />
             </div>
 
-            <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-white/5">
-              <button onClick={() => setShowCreate(false)} className="px-4 py-2 text-xs text-slate-400 hover:text-white transition-colors">Cancel</button>
+            <div className="flex items-center justify-end gap-3 px-4 sm:px-6 py-4 border-t border-white/5 bg-[#1a1d27] sticky bottom-0">
+              <button onClick={() => setShowCreate(false)} className="px-4 py-2 min-h-[44px] text-xs text-slate-400 hover:text-white transition-colors">Cancel</button>
               <button onClick={handleCreate} disabled={saving || !customerId}
-                className="px-5 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-xs font-semibold rounded-lg transition-colors">
+                className="px-5 py-2 min-h-[44px] bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-xs font-semibold rounded-lg transition-colors">
                 {saving ? 'Creating...' : `Create Invoice — SAR ${total.toFixed(2)}`}
               </button>
             </div>
@@ -642,21 +642,21 @@ export default function Invoices() {
 
       {/* ── DETAIL MODAL ── */}
       {showDetail && selected && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-start justify-center pt-8 pb-4 px-4 overflow-y-auto">
-          <div className="w-full max-w-3xl bg-[#1a1d27] rounded-2xl border border-white/10 shadow-2xl">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-white/5">
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-end sm:items-start justify-center sm:pt-8 sm:pb-4 sm:px-4 overflow-y-auto">
+          <div className="w-full sm:max-w-3xl bg-[#1a1d27] rounded-t-2xl sm:rounded-2xl border border-white/10 shadow-2xl max-h-[95vh] flex flex-col overflow-hidden">
+            <div className="flex items-start justify-between px-4 sm:px-6 py-4 border-b border-white/5 flex-shrink-0">
               <div>
                 <h2 className="text-sm font-bold text-white">{selected.invoice_number}</h2>
                 <p className="text-[11px] text-slate-500 mt-0.5">{selected.customer_name}</p>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap justify-end">
                 <button onClick={handlePrint}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-white/5 hover:bg-white/10 text-slate-300 text-xs font-medium rounded-lg border border-white/10 transition-colors">
+                  className="flex items-center gap-1.5 px-3 py-1.5 min-h-[44px] bg-white/5 hover:bg-white/10 text-slate-300 text-xs font-medium rounded-lg border border-white/10 transition-colors">
                   <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
                   Print
                 </button>
                 <button onClick={handleDownloadPdf}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold rounded-lg transition-colors">
+                  className="flex items-center gap-1.5 px-3 py-1.5 min-h-[44px] bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold rounded-lg transition-colors">
                   <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
                   Save PDF
                 </button>
@@ -664,7 +664,7 @@ export default function Invoices() {
                   <select
                     defaultValue=""
                     onChange={e => { if (e.target.value) setConfirmStatus({ id: selected.id, status: e.target.value }); }}
-                    className="px-3 py-1.5 text-xs bg-[#0f1117] border border-white/10 rounded-lg text-white focus:outline-none">
+                    className="px-3 py-1.5 min-h-[44px] text-xs bg-[#0f1117] border border-white/10 rounded-lg text-white focus:outline-none">
                     <option value="" disabled>Change status...</option>
                     {['draft','sent','partial','overdue','cancelled']
                       .filter(s => s !== selected.status)
@@ -673,15 +673,15 @@ export default function Invoices() {
                     ))}
                   </select>
                 )}
-                <button onClick={() => setShowDetail(false)} className="p-1 text-slate-400 hover:text-white">
+                <button onClick={() => setShowDetail(false)} className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center text-slate-400 hover:text-white">
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg>
                 </button>
               </div>
             </div>
 
-            <div className="p-6 space-y-5">
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-5">
               {/* Summary cards */}
-              <div className="grid grid-cols-4 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 {[
                   { label: 'Total', value: fmtSAR(selected.total_amount), color: 'text-white' },
                   { label: 'Paid', value: fmtSAR(selected.paid_amount), color: 'text-emerald-400' },
@@ -696,7 +696,7 @@ export default function Invoices() {
               </div>
 
               {/* Info row */}
-              <div className="grid grid-cols-3 gap-3 text-xs">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
                 <div><span className="text-slate-500">Invoice Date</span><p className="text-white mt-0.5">{fmtDate(selected.invoice_date)}</p></div>
                 <div><span className="text-slate-500">Due Date</span><p className="text-white mt-0.5">{fmtDate(selected.due_date)}</p></div>
                 <div><span className="text-slate-500">Shipment</span><p className="text-blue-400 mt-0.5">{selected.shipment_number || '—'}</p></div>
