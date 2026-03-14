@@ -3,7 +3,7 @@
 // Shared backend utilities. Import from here — never define these
 // inline in a controller again.
 // ─────────────────────────────────────────────────────────────────
-import { run } from '../database/db.js';
+import { run, get } from '../database/db.js';
 
 // ── Null-safe binding ──────────────────────────────────────────────
 /**
@@ -94,4 +94,60 @@ export function paginate(q, defaultLimit = 50) {
     });
 
     return { page, limit, offset, respond };
+}
+
+// ── Token invalidation ─────────────────────────────────────────────
+/**
+ * Write a token blacklist entry.
+ *
+ * For individual token invalidation (logout, password_changed, role_changed):
+ *   await invalidateToken(jti, userId, expiresAt, 'logout');
+ *
+ * For account deactivation (invalidates ALL tokens for a user):
+ *   await invalidateUserTokens(userId);
+ *
+ * @param {string} jti        - JWT ID from the token payload
+ * @param {number} userId
+ * @param {Date|number} expiresAt  - token exp (unix timestamp or Date)
+ * @param {string} reason     - 'logout'|'deactivated'|'password_changed'|'role_changed'
+ */
+export async function invalidateToken(jti, userId, expiresAt, reason) {
+    try {
+        // Convert unix timestamp to Date if needed
+        const exp = expiresAt instanceof Date
+            ? expiresAt
+            : new Date(expiresAt * 1000);
+
+        await run(
+            `INSERT IGNORE INTO token_blacklist (jti, user_id, expires_at, reason)
+             VALUES (?, ?, ?, ?)`,
+            [jti, userId, exp, reason]
+        );
+    } catch (e) {
+        // Non-fatal — log but don't surface to client
+        console.warn('[invalidateToken] failed:', e.message);
+    }
+}
+
+/**
+ * Invalidate ALL active tokens for a user.
+ * Used when deactivating an account — we have no session store so we
+ * write a sentinel row. The authenticate middleware checks for any
+ * 'deactivated:<userId>:%' entry with invalidated_at after the token's iat.
+ *
+ * @param {number} userId
+ */
+export async function invalidateUserTokens(userId) {
+    try {
+        const sentinel = `deactivated:${userId}:${Date.now()}`;
+        // expires_at = 24h from now (matches max token lifetime)
+        const exp = new Date(Date.now() + 24 * 60 * 60 * 1000);
+        await run(
+            `INSERT IGNORE INTO token_blacklist (jti, user_id, expires_at, reason)
+             VALUES (?, ?, ?, 'deactivated')`,
+            [sentinel, userId, exp]
+        );
+    } catch (e) {
+        console.warn('[invalidateUserTokens] failed:', e.message);
+    }
 }

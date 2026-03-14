@@ -1,7 +1,7 @@
 import { asyncHandler, httpError } from '../middleware/asyncHandler.js';
 import bcrypt from 'bcryptjs';
 import { query, get, run } from '../database/db.js';
-import { n, logActivity } from '../utils/helpers.js';
+import { n, logActivity, invalidateToken, invalidateUserTokens } from '../utils/helpers.js';
 
 // ── GET ALL ────────────────────────────────────────────────────────────
 export const getAllUsers = asyncHandler(async (req, res) => {
@@ -125,6 +125,20 @@ export const updateUser = asyncHandler(async (req, res) => {
             [n(firstName), n(lastName), n(role), n(department), n(phone), activeValue, id]
         );
 
+        // ── Token invalidation triggers ────────────────────────────
+        // Deactivation: wipe all tokens for this user immediately.
+        // Role change: role is baked into the JWT, so old token has wrong role.
+        const isDeactivating = isActive !== undefined && !isActive && user.is_active;
+        const isRoleChange   = role && role !== user.role;
+
+        if (isDeactivating) {
+            await invalidateUserTokens(parseInt(id));
+        } else if (isRoleChange) {
+            // Role is baked into the JWT payload — invalidate all sessions
+            // for this user so they must re-login with the updated role.
+            await invalidateUserTokens(parseInt(id));
+        }
+
         await logActivity(req.user.id, 'UPDATE_USER', 'user', id, { firstName, lastName, role, isActive }, user);
         res.json({ message: 'User updated successfully' });
 });
@@ -152,7 +166,6 @@ export const resetPassword = asyncHandler(async (req, res) => {
         const user = await get('SELECT id FROM users WHERE id = ?', [id]);
         if (!user) return res.status(404).json({ error: 'User not found' });
 
-        // Use bcrypt rounds=12 for new passwords
         const hashedPassword = await bcrypt.hash(newPassword, 12);
 
         await run('UPDATE users SET password = ? WHERE id = ?', [hashedPassword, id]);
@@ -175,7 +188,6 @@ export const changeOwnPassword = asyncHandler(async (req, res) => {
         const user = await get('SELECT * FROM users WHERE id = ?', [userId]);
         if (!user) return res.status(404).json({ error: 'User not found' });
 
-        // Verify current password before allowing change
         let isValid = false;
         if (user.password.startsWith('$2a$') || user.password.startsWith('$2b$')) {
             isValid = await bcrypt.compare(currentPassword, user.password);
@@ -189,5 +201,11 @@ export const changeOwnPassword = asyncHandler(async (req, res) => {
         const hashed = await bcrypt.hash(newPassword, 12);
         await run('UPDATE users SET password = ? WHERE id = ?', [hashed, userId]);
         await logActivity(userId, 'CHANGE_OWN_PASSWORD', 'user', userId);
-        res.json({ message: 'Password changed successfully' });
+
+        // Blacklist the current token — must re-login with new credentials
+        if (req.tokenJti && req.tokenExp) {
+            await invalidateToken(req.tokenJti, req.user.id, req.tokenExp, 'password_changed');
+        }
+
+        res.json({ message: 'Password changed successfully. Please log in again.' });
 });

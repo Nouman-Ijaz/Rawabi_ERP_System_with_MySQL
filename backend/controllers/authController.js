@@ -2,7 +2,7 @@ import { asyncHandler, httpError } from '../middleware/asyncHandler.js';
 import bcrypt from 'bcryptjs';
 import { query, get, run } from '../database/db.js';
 import { generateToken } from '../middleware/auth.js';
-import { logActivity } from '../utils/helpers.js';
+import { logActivity, invalidateToken } from '../utils/helpers.js';
 
 // ============================================
 // LOGIN
@@ -132,7 +132,13 @@ export const changePassword = asyncHandler(async (req, res) => {
         const hashed = await bcrypt.hash(newPassword, 10);
         await run('UPDATE users SET password = ? WHERE id = ?', [hashed, req.user.id]);
 
-        res.json({ message: 'Password changed successfully' });
+        // Blacklist the current token — user must log in again with new password
+        if (req.tokenJti && req.tokenExp) {
+            await invalidateToken(req.tokenJti, req.user.id, req.tokenExp, 'password_changed');
+        }
+
+        res.json({ message: 'Password changed successfully. Please log in again.' });
+
 });
 
 // ============================================
@@ -303,4 +309,23 @@ export const getDashboardStats = asyncHandler(async (req, res) => {
             expiryAlerts,
             monthlyRevenueChart,
         });
+});
+
+
+// ============================================
+// LOGOUT
+// Blacklists the current token so it cannot
+// be reused even before it naturally expires.
+// ============================================
+export const logout = asyncHandler(async (req, res) => {
+    if (req.tokenJti && req.tokenExp) {
+        await invalidateToken(req.tokenJti, req.user.id, req.tokenExp, 'logout');
+    }
+
+    await run(
+        'INSERT INTO activity_logs (user_id, action, entity_type, ip_address) VALUES (?, ?, ?, ?)',
+        [req.user.id, 'LOGOUT', 'user', req.ip]
+    ).catch(() => {}); // non-fatal
+
+    res.json({ message: 'Logged out successfully' });
 });

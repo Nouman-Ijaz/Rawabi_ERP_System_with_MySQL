@@ -1,6 +1,7 @@
 import express from 'express';
 import { authenticateToken, authorize, resolveDriverId } from '../middleware/auth.js';
 import { uploadEmployee, uploadDriver, uploadDocument } from '../config/multer.js';
+import { authLimiter, apiLimiter, sensitiveLimiter } from '../middleware/rateLimiter.js';
 
 // Controllers
 import * as authController        from '../controllers/authController.js';
@@ -36,12 +37,17 @@ const CUSTOMER_VIEW   = ['super_admin', 'admin', 'office_admin', 'dispatcher', '
 // ============================================
 // PUBLIC ROUTES
 // ============================================
-router.post('/auth/login', authController.login);
+router.post('/auth/login', authLimiter, authController.login);
 router.get('/shipments/track/:trackingNumber', shipmentController.trackShipment);
+
+// POST /auth/logout — blacklists the current token
+router.post('/auth/logout', authenticateToken, authController.logout);
 
 // All routes below require a valid JWT
 router.use(authenticateToken);
 router.use(resolveDriverId);   // attaches req.driverId for driver role
+router.use(apiLimiter);        // 120 req/min per IP — applied after auth so unauthenticated requests are rejected first
+
 
 // ============================================
 // DASHBOARD
@@ -55,7 +61,7 @@ router.get('/dashboard/stats', authController.getDashboardStats);
 router.get('/profile',                  authController.getProfile);
 router.get('/profile/employee',         authController.getMyEmployeeProfile);
 router.put('/profile',                  authController.updateProfile);
-router.put('/profile/change-password',  authController.changePassword);
+router.put('/profile/change-password',  sensitiveLimiter, authController.changePassword);
 
 // ============================================
 // USERS  (super_admin only for write, admin can read)
@@ -63,12 +69,13 @@ router.put('/profile/change-password',  authController.changePassword);
 router.get('/users',                authorize(ADMIN_UP),       userController.getAllUsers);
 router.get('/users/stats',          authorize(ADMIN_UP),       userController.getUserStats);
 router.get('/users/:id',            authorize(ADMIN_UP),       userController.getUserById);
-router.post('/users',               authorize(SUPER_ADMIN),    userController.createUser);
-router.put('/users/:id',            authorize(SUPER_ADMIN),    userController.updateUser);
-router.delete('/users/:id',         authorize(SUPER_ADMIN),                userController.deleteUser);
+router.post('/users',               sensitiveLimiter, authorize(SUPER_ADMIN), userController.createUser);
+router.put('/users/:id',            sensitiveLimiter, authorize(SUPER_ADMIN), userController.updateUser);
+router.delete('/users/:id',         authorize(SUPER_ADMIN),                   userController.deleteUser);
 // Super admin resets any user's password; any user changes their own via /me/change-password
-router.put('/users/:id/reset-password', authorize(SUPER_ADMIN),           userController.resetPassword);
-router.put('/me/change-password',   authorize([]),                            userController.changeOwnPassword);
+router.put('/users/:id/reset-password', sensitiveLimiter, authorize(SUPER_ADMIN), userController.resetPassword);
+router.put('/me/change-password',   sensitiveLimiter, authorize([]),              userController.changeOwnPassword);
+
 
 // ============================================
 // EMPLOYEES  (super_admin, admin, office_admin)

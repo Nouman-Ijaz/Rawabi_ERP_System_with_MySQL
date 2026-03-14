@@ -1,5 +1,9 @@
-import jwt from 'jsonwebtoken';
-import { get } from '../database/db.js';
+// ─────────────────────────────────────────────────────────────────
+// backend/middleware/auth.js
+// ─────────────────────────────────────────────────────────────────
+import jwt            from 'jsonwebtoken';
+import { randomUUID } from 'crypto';
+import { get }        from '../database/db.js';
 
 const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) {
@@ -22,6 +26,8 @@ export const ROLES = {
 
 // ============================================
 // GENERATE JWT
+// Every token gets a unique jti (JWT ID) so it
+// can be individually blacklisted.
 // ============================================
 export function generateToken(user) {
     return jwt.sign(
@@ -31,6 +37,7 @@ export function generateToken(user) {
             role:      user.role,
             firstName: user.first_name,
             lastName:  user.last_name,
+            jti:       randomUUID(),
         },
         JWT_SECRET,
         { expiresIn: process.env.JWT_EXPIRES_IN || '24h' }
@@ -39,6 +46,7 @@ export function generateToken(user) {
 
 // ============================================
 // AUTHENTICATE TOKEN
+// Checks: signature → blacklist → active status
 // ============================================
 export async function authenticateToken(req, res, next) {
     const authHeader = req.headers['authorization'];
@@ -48,21 +56,66 @@ export async function authenticateToken(req, res, next) {
         return res.status(401).json({ error: 'Access token required' });
     }
 
+    let decoded;
     try {
-        const decoded = jwt.verify(token, JWT_SECRET);
+        decoded = jwt.verify(token, JWT_SECRET);
+    } catch {
+        return res.status(403).json({ error: 'Invalid or expired token' });
+    }
 
+    try {
+        // ── Blacklist check ────────────────────────────────────────
+        // Check direct jti blacklist (logout, password change, role change)
+        if (decoded.jti) {
+            const blacklisted = await get(
+                'SELECT id FROM token_blacklist WHERE jti = ?',
+                [decoded.jti]
+            );
+            if (blacklisted) {
+                return res.status(401).json({ error: 'Session invalidated. Please log in again.' });
+            }
+        }
+
+        // ── Deactivation sweep check ───────────────────────────────
+        // When a user is deactivated we write a sentinel row with
+        // jti = 'deactivated:<userId>:<timestamp>'. If any such row
+        // exists with invalidated_at AFTER the token's iat, the
+        // token predates the deactivation and must be rejected.
+        if (decoded.iat) {
+            const deactivated = await get(
+                `SELECT id FROM token_blacklist
+                 WHERE jti LIKE ?
+                   AND reason = 'deactivated'
+                   AND invalidated_at > FROM_UNIXTIME(?)
+                 LIMIT 1`,
+                [`deactivated:${decoded.id}:%`, decoded.iat]
+            );
+            if (deactivated) {
+                return res.status(401).json({ error: 'Account deactivated. Contact your administrator.' });
+            }
+        }
+
+        // ── Active status check ────────────────────────────────────
         const user = await get(
             'SELECT id, email, role, first_name, last_name, is_active FROM users WHERE id = ?',
             [decoded.id]
         );
 
-        if (!user)            return res.status(401).json({ error: 'User not found' });
-        if (!user.is_active)  return res.status(401).json({ error: 'Account is deactivated' });
+        if (!user) {
+            return res.status(401).json({ error: 'User not found' });
+        }
+        if (!user.is_active) {
+            return res.status(401).json({ error: 'Account deactivated. Contact your administrator.' });
+        }
 
-        req.user = user;
+        req.user    = user;
+        req.tokenJti = decoded.jti || null;
+        req.tokenIat = decoded.iat || null;
+        req.tokenExp = decoded.exp || null;
         next();
-    } catch {
-        return res.status(403).json({ error: 'Invalid or expired token' });
+    } catch (err) {
+        console.error('[authenticateToken] DB error:', err.message);
+        return res.status(500).json({ error: 'Internal server error' });
     }
 }
 
@@ -90,7 +143,7 @@ export function authorize(roles = []) {
 // ============================================
 export async function resolveDriverId(req, res, next) {
     if (req.user.role !== 'driver') {
-        return next(); // non-driver roles skip this
+        return next();
     }
 
     try {
