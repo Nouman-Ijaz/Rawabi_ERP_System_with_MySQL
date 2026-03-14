@@ -192,6 +192,31 @@ router.get('/notifications', authorize(), async (req, res) => {
             }));
         }
 
+        // Dispatcher/admin: open shipment issues reported by drivers
+        if (['super_admin', 'admin', 'dispatcher'].includes(role)) {
+            const openIssues = await query(
+                `SELECT si.id, si.issue_type, si.shipment_id,
+                        s.shipment_number,
+                        CONCAT(e.first_name, ' ', e.last_name) AS driver_name
+                 FROM shipment_issues si
+                 JOIN shipments s ON s.id = si.shipment_id
+                 JOIN drivers d ON d.id = si.driver_id
+                 JOIN employees e ON e.id = d.employee_id
+                 WHERE si.status = 'open'
+                 ORDER BY si.reported_at DESC LIMIT 5`
+            ).catch(() => []);
+            openIssues.forEach(i => notes.push({
+                id:       'issue-' + i.id,
+                type:     'issue',
+                title:    'Driver reported issue',
+                message:  `${i.shipment_number} — ${i.issue_type.replace('_', ' ')} (${i.driver_name})`,
+                link:     '/shipments/' + i.shipment_id,
+                priority: ['breakdown', 'accident'].includes(i.issue_type) ? 'high' : 'medium',
+            }));
+        }
+
+
+
         // Admin/dispatcher: driver licenses expiring within 30 days
         if (['super_admin', 'admin', 'dispatcher'].includes(role)) {
             const expiring = await query(
@@ -380,6 +405,7 @@ router.get('/reports/driver-performance',   authorize(REPORT_ROLES), reportsCont
 // ============================================
 import * as payrollController from '../controllers/payrollController.js';
 import * as leaveController   from '../controllers/leaveController.js';
+import * as tripsController   from '../controllers/tripsController.js';
 import { getActiveAlerts, dismissAlert, runExpiryCheck } from '../services/expiryAlerts.js';
 
 router.get('/payroll/stats',                     authorize(PAY_VIEW), payrollController.getPayrollStats);
@@ -412,6 +438,18 @@ router.get('/leave/requests/:id',           authorize([]),          leaveControl
 router.post('/leave/requests',              authorize([]),          leaveController.createRequest);
 router.put('/leave/requests/:id/review',    authorize(MANAGEMENT), leaveController.reviewRequest);
 router.put('/leave/requests/:id/cancel',    authorize([]),          leaveController.cancelRequest);
+
+
+// ============================================
+// MY TRIPS  (driver role only — enforced inside controller)
+// ============================================
+router.get('/my-trips/all-issues',   authorize(['driver']), tripsController.getAllMyIssues);
+router.get('/my-trips',              authorize(['driver']), tripsController.getMyTrips);
+router.get('/my-trips/:id',          authorize(['driver']), tripsController.getMyTripById);
+router.put('/my-trips/:id/status',   authorize(['driver']), tripsController.updateMyTripStatus);
+router.post('/my-trips/:id/issue',   authorize(['driver']), tripsController.reportIssue);
+router.get('/my-trips/:id/issues',   authorize(['driver']), tripsController.getTripIssues);
+
 
 // ============================================
 // EXPIRY ALERTS

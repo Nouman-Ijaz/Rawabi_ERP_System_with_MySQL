@@ -21,6 +21,7 @@ export const SHIPMENT_STATUS: Record<string, string> = {
   delivered:  'bg-emerald-500/15 text-emerald-400 border-emerald-500/20',
   cancelled:  'bg-red-500/15 text-red-400 border-red-500/20',
   returned:   'bg-slate-500/15 text-slate-400 border-slate-500/20',
+  delayed:    'bg-rose-500/15 text-rose-400 border-rose-500/20',
 };
 
 export const APPROVAL_STATUS: Record<string, string> = {

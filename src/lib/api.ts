@@ -422,6 +422,22 @@ export const auditApi = {
   getFilters: () => fetchApi<any>('/audit-logs/filters'),
 };
 
+// My Trips API (driver portal)
+export const myTripsApi = {
+  getAll: (params?: Record<string, string>) =>
+    fetchApi<any>(`/my-trips?${new URLSearchParams(params || {}).toString()}`),
+  getById: (id: number) =>
+    fetchApi<any>(`/my-trips/${id}`),
+  updateStatus: (id: number, data: { status: string; reason?: string; location?: string; notes?: string }) =>
+    fetchApi<any>(`/my-trips/${id}/status`, { method: 'PUT', body: JSON.stringify(data) }),
+  reportIssue: (id: number, data: { issue_type: string; description: string; location?: string }) =>
+    fetchApi<any>(`/my-trips/${id}/issue`, { method: 'POST', body: JSON.stringify(data) }),
+  getTripIssues: (id: number) =>
+    fetchApi<any[]>(`/my-trips/${id}/issues`),
+  getAllIssues: () =>
+    fetchApi<any[]>('/my-trips/all-issues'),
+};
+
 // Central API object export
 export const api = {
   auth: authApi,
@@ -438,6 +454,7 @@ export const api = {
   payroll: payrollApi,
   leave: leaveApi,
   audit: auditApi,
+  myTrips: myTripsApi,
 };
 
 export default api;

@@ -29,6 +29,7 @@ import Users from './pages/Users';
 import Settings from './pages/Settings';
 import Profile from './pages/Profile';
 import AuditLog from './pages/AuditLog';
+import MyTrips  from './pages/MyTrips';
 
 // Context
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -114,6 +115,13 @@ function App() {
 
             {/* Leave Management */}
             <Route path="/leave" element={<Leave />} />
+
+            {/* Driver Portal */}
+            <Route path="/my-trips" element={
+              <ProtectedRoute allowedRoles={['driver']}>
+                <MyTrips />
+              </ProtectedRoute>
+            } />
             
             {/* Admin */}
             <Route path="/users" element={

@@ -22,6 +22,7 @@ const NAV = [
   { name: 'Reports',        href: '/reports',     icon: 'barchart',    roles: ROLES.REPORTS },
   { name: 'Payroll',        href: '/payroll',     icon: 'payroll',     roles: ROLES.PAY_VIEW },
   { name: 'My Salary Slips',href: '/payroll',     icon: 'payroll',     roles: ['office_admin','dispatcher','driver'] as any },
+  { name: 'My Trips',       href: '/my-trips',    icon: 'mytrips',     roles: ['driver'] as any },
   { name: 'Leave',          href: '/leave',       icon: 'calendar',    roles: [] },
   { name: 'Audit Log',      href: '/audit-log',   icon: 'auditlog',    roles: ROLES.ADMIN_UP },
   { name: 'Users',          href: '/users',       icon: 'usercog',     roles: ROLES.ADMIN_UP },
@@ -69,6 +70,7 @@ function Icon({ name, className }: { name: string; className?: string }) {
     x:         <svg {...p}><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M6 18L18 6M6 6l12 12"/></svg>,
     auditlog:  <svg {...p}><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/></svg>,
     bolt:      <svg {...p}><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>,
+    mytrips:   <svg {...p}><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/></svg>,
   };
   return icons[name] || icons['dashboard'];
 }
