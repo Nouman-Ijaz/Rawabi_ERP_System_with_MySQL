@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { SHIPMENT_STATUS, APPROVAL_STATUS, TIMELINE_HEX } from '@/lib/statusStyles';
+import { fmtDate, fmtDateTime, fmtSAR } from '@/lib/format';
 
 // Local aliases — existing JSX uses STATUS_BADGE / APPROVAL_BADGE / TIMELINE_DOT
 const STATUS_BADGE    = SHIPMENT_STATUS;
@@ -50,8 +51,6 @@ const STATUS_OPTIONS: Record<string, { value: string; label: string; desc: strin
 };
 
 // ── helpers ───────────────────────────────────────────────────────
-const fmt = (d?: string) => d ? new Date(d).toLocaleDateString('en-SA', { year: 'numeric', month: 'short', day: 'numeric' }) : null;
-const fmtDT = (d?: string) => d ? new Date(d).toLocaleString('en-SA', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : null;
 const fileSize = (bytes: number) => bytes < 1024 * 1024 ? `${(bytes / 1024).toFixed(0)} KB` : `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 
 function SCard({ title, action, children }: { title: string; action?: React.ReactNode; children: React.ReactNode }) {
@@ -319,7 +318,7 @@ export default function ShipmentDetail() {
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div className="flex items-center gap-3">
           <Link to="/shipments"
-            className="p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center text-slate-400 hover:text-white bg-white/5 hover:bg-white/10 rounded-lg transition-colors">
+            className="p-2 text-slate-400 hover:text-white bg-white/5 hover:bg-white/10 rounded-lg transition-colors">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 19l-7-7 7-7"/>
             </svg>
@@ -344,7 +343,7 @@ export default function ShipmentDetail() {
           {/* Edit shipment details */}
           {isDispatcher && !['delivered','cancelled','returned'].includes(shipment.status) && (
             <button onClick={openEdit}
-              className="px-3 py-2.5 min-h-[44px] text-xs text-slate-300 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg transition-colors">
+              className="px-3 py-2 text-xs text-slate-300 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg transition-colors">
               Edit Details
             </button>
           )}
@@ -352,13 +351,13 @@ export default function ShipmentDetail() {
           {hasPermission(['super_admin','admin','dispatcher','driver']) &&
            !['delivered','cancelled','returned'].includes(shipment.status) && (
             <div className="relative group">
-              <button className="px-3 py-2.5 min-h-[44px] text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors flex items-center gap-2">
+              <button className="px-3 py-2 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors flex items-center gap-2">
                 Change Status
                 <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7"/>
                 </svg>
               </button>
-              <div className="absolute right-0 top-full mt-1 w-64 max-w-[calc(100vw-2rem)] bg-[#1a1d27] border border-white/10 rounded-xl shadow-2xl z-50 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all">
+              <div className="absolute right-0 top-full mt-1 w-64 bg-[#1a1d27] border border-white/10 rounded-xl shadow-2xl z-50 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all">
                 <p className="text-[10px] text-slate-500 px-3 pt-3 pb-1 uppercase tracking-wider">Select new status</p>
                 {statusOptions.map(opt => (
                   <button key={opt.value} onClick={() => openStatusModal(opt.value)}
@@ -375,8 +374,8 @@ export default function ShipmentDetail() {
 
       {/* ── Progress bar ──────────────────────────────────────── */}
       {!['cancelled','returned'].includes(shipment.status) && (
-        <div className="bg-[#1a1d27] rounded-xl border border-white/5 p-4 sm:p-5">
-          <div className="flex items-center overflow-x-auto pb-1 sm:pb-0 gap-0 min-w-0">
+        <div className="bg-[#1a1d27] rounded-xl border border-white/5 p-5">
+          <div className="flex items-center">
             {STATUS_FLOW.map((s, i) => (
               <div key={s} className="flex items-center flex-1 last:flex-none">
                 <div className="flex flex-col items-center">
@@ -387,7 +386,7 @@ export default function ShipmentDetail() {
                   }`}>
                     {i < currentIdx ? '✓' : i + 1}
                   </div>
-                  <p className={`text-[9px] sm:text-[10px] mt-1 text-center whitespace-nowrap ${i <= currentIdx ? 'text-slate-300' : 'text-slate-600'}`}>
+                  <p className={`text-[10px] mt-1 text-center whitespace-nowrap ${i <= currentIdx ? 'text-slate-300' : 'text-slate-600'}`}>
                     {s.replace(/_/g, ' ')}
                   </p>
                 </div>
@@ -401,20 +400,18 @@ export default function ShipmentDetail() {
       )}
 
       {/* ── Tabs ─────────────────────────────────────────────── */}
-      <div className="overflow-x-auto pb-0.5">
-        <div className="flex gap-1 bg-[#1a1d27] rounded-xl border border-white/5 p-1 w-fit min-w-max">
-          {(['details','timeline','documents'] as const).map(t => (
-            <button key={t} onClick={() => setTab(t)}
-              className={`px-4 py-2.5 min-h-[44px] text-xs font-medium rounded-lg transition-colors capitalize ${
-                tab === t ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'
-              }`}>
-              {t}
-              {t === 'documents' && documents.length > 0 && (
-                <span className="ml-1.5 px-1.5 py-0.5 bg-white/10 rounded-full text-[10px]">{documents.length}</span>
-              )}
-            </button>
-          ))}
-        </div>
+      <div className="flex gap-1 bg-[#1a1d27] rounded-xl border border-white/5 p-1 w-fit">
+        {(['details','timeline','documents'] as const).map(t => (
+          <button key={t} onClick={() => setTab(t)}
+            className={`px-4 py-2 text-xs font-medium rounded-lg transition-colors capitalize ${
+              tab === t ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'
+            }`}>
+            {t}
+            {t === 'documents' && documents.length > 0 && (
+              <span className="ml-1.5 px-1.5 py-0.5 bg-white/10 rounded-full text-[10px]">{documents.length}</span>
+            )}
+          </button>
+        ))}
       </div>
 
       {/* ── Tab: Details ────────────────────────────────────── */}
@@ -431,8 +428,8 @@ export default function ShipmentDetail() {
                 <Row label="Weight"        value={shipment.weight_kg ? `${shipment.weight_kg} kg` : null} />
                 <Row label="Volume"        value={shipment.volume_cbm ? `${shipment.volume_cbm} cbm` : null} />
                 <Row label="Pieces"        value={shipment.pieces} />
-                <Row label="Quoted (SAR)"  value={shipment.quoted_amount ? parseFloat(shipment.quoted_amount).toLocaleString() : null} />
-                <Row label="Final (SAR)"   value={shipment.final_amount  ? parseFloat(shipment.final_amount).toLocaleString()  : null} />
+                <Row label="Quoted (SAR)"  value={shipment.quoted_amount ? fmtSAR(shipment.quoted_amount) : null} />
+                <Row label="Final (SAR)"   value={shipment.final_amount  ? fmtSAR(shipment.final_amount)  : null} />
               </div>
               <div className="grid grid-cols-2 gap-x-6 gap-y-4 mt-4 pt-4 border-t border-white/5">
                 <div>
@@ -500,9 +497,9 @@ export default function ShipmentDetail() {
                   <p className="text-[10px] text-slate-600">Only available drivers and vehicles are safe to assign. Busy ones will be rejected by the server.</p>
                   <div className="flex gap-2">
                     <button onClick={() => setAssignOpen(false)}
-                      className="flex-1 py-2.5 min-h-[44px] text-xs text-slate-400 bg-white/5 hover:bg-white/10 rounded-lg">Cancel</button>
+                      className="flex-1 py-2 text-xs text-slate-400 bg-white/5 hover:bg-white/10 rounded-lg">Cancel</button>
                     <button onClick={handleAssign}
-                      className="flex-1 py-2.5 min-h-[44px] text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg">Save</button>
+                      className="flex-1 py-2 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg">Save</button>
                   </div>
                 </div>
               ) : (
@@ -540,11 +537,11 @@ export default function ShipmentDetail() {
             <SCard title="Timeline">
               <div className="space-y-2.5">
                 {[
-                  { label: 'Order Date',         value: fmt(shipment.order_date) },
-                  { label: 'Req. Pickup',        value: fmt(shipment.requested_pickup_date) },
-                  { label: 'Req. Delivery',      value: fmt(shipment.requested_delivery_date) },
-                  { label: 'Actual Pickup',      value: fmtDT(shipment.actual_pickup_date),   pending: !shipment.actual_pickup_date },
-                  { label: 'Actual Delivery',    value: fmtDT(shipment.actual_delivery_date), pending: !shipment.actual_delivery_date },
+                  { label: 'Order Date',         value: fmtDate(shipment.order_date) },
+                  { label: 'Req. Pickup',        value: fmtDate(shipment.requested_pickup_date) },
+                  { label: 'Req. Delivery',      value: fmtDate(shipment.requested_delivery_date) },
+                  { label: 'Actual Pickup',      value: fmtDateTime(shipment.actual_pickup_date),   pending: !shipment.actual_pickup_date },
+                  { label: 'Actual Delivery',    value: fmtDateTime(shipment.actual_delivery_date), pending: !shipment.actual_delivery_date },
                 ].map(r => (
                   <div key={r.label} className="flex items-center justify-between gap-2">
                     <p className="text-[11px] text-slate-500 flex-shrink-0">{r.label}</p>
@@ -561,9 +558,9 @@ export default function ShipmentDetail() {
               <div className="space-y-2.5">
                 {[
                   { label: 'Created by',  value: shipment.created_by_name },
-                  { label: 'Created',     value: fmt(shipment.created_at) },
+                  { label: 'Created',     value: fmtDate(shipment.created_at) },
                   { label: 'Approved by', value: shipment.approved_by_name },
-                  { label: 'Approved',    value: fmtDT(shipment.approved_at) },
+                  { label: 'Approved',    value: fmtDateTime(shipment.approved_at) },
                 ].filter(r => r.value).map(r => (
                   <div key={r.label} className="flex items-center justify-between gap-2">
                     <p className="text-[11px] text-slate-500">{r.label}</p>
@@ -596,7 +593,7 @@ export default function ShipmentDetail() {
                     {e.location && <p className="text-[11px] text-slate-400 mt-0.5">📍 {e.location}</p>}
                     {e.notes     && <p className="text-[11px] text-slate-500 mt-0.5 italic">{e.notes}</p>}
                     <div className="flex items-center gap-2 mt-1">
-                      <p className="text-[10px] text-slate-600">{fmtDT(e.event_time)}</p>
+                      <p className="text-[10px] text-slate-600">{fmtDateTime(e.event_time)}</p>
                       {e.recorded_by_name && <p className="text-[10px] text-slate-600">· {e.recorded_by_name}</p>}
                     </div>
                   </div>
@@ -678,7 +675,7 @@ export default function ShipmentDetail() {
                         <span className="text-[10px] px-1.5 py-0.5 bg-white/5 rounded text-slate-400">
                           {ALL_DOC_TYPES.find(d => d.value === doc.document_type)?.label || doc.document_type}
                         </span>
-                        <p className="text-[10px] text-slate-600">{fmtDT(doc.uploaded_at)}</p>
+                        <p className="text-[10px] text-slate-600">{fmtDateTime(doc.uploaded_at)}</p>
                         {doc.uploaded_by_name && <p className="text-[10px] text-slate-600">· {doc.uploaded_by_name}</p>}
                       </div>
                       {doc.notes && <p className="text-[10px] text-slate-500 mt-0.5 italic">{doc.notes}</p>}
@@ -702,7 +699,7 @@ export default function ShipmentDetail() {
       {/* ── Status Confirmation Modal ─────────────────────────── */}
       {showStatusModal && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-          <div className="bg-[#1a1d27] border border-white/10 rounded-2xl p-4 sm:p-6 w-full max-w-md shadow-2xl">
+          <div className="bg-[#1a1d27] border border-white/10 rounded-2xl p-6 w-full max-w-md shadow-2xl">
             <h3 className="text-base font-bold text-white mb-1">Confirm Status Change</h3>
             <p className="text-xs text-slate-400 mb-5">
               Changing <span className="text-white font-mono">{shipment.shipment_number}</span> to{' '}
@@ -737,11 +734,11 @@ export default function ShipmentDetail() {
       {/* ── Edit Shipment Modal ───────────────────────────────── */}
       {editOpen && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-          <div className="bg-[#1a1d27] border border-white/10 rounded-2xl p-4 sm:p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl">
+          <div className="bg-[#1a1d27] border border-white/10 rounded-2xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl">
             <h3 className="text-base font-bold text-white mb-5">Edit Shipment</h3>
             <div className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="col-span-1 sm:col-span-2 space-y-1.5">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="col-span-2 space-y-1.5">
                   <p className="text-[11px] text-slate-500">Customer</p>
                   <DSel value={editForm.customerId} onChange={v => setEditForm((p: any) => ({ ...p, customerId: v }))}>
                     {customers.map((c: any) => <SelectItem key={c.id} value={c.id.toString()}>{c.company_name}</SelectItem>)}
@@ -812,11 +809,11 @@ export default function ShipmentDetail() {
                   <p className="text-[11px] text-slate-500">Req. Delivery Date</p>
                   <DIn type="date" value={editForm.requestedDeliveryDate} onChange={e => setEditForm((p: any) => ({ ...p, requestedDeliveryDate: e.target.value }))} />
                 </div>
-                <div className="col-span-1 sm:col-span-2 space-y-1.5">
+                <div className="col-span-2 space-y-1.5">
                   <p className="text-[11px] text-slate-500">Cargo Description</p>
                   <DTa value={editForm.cargoDescription} onChange={e => setEditForm((p: any) => ({ ...p, cargoDescription: e.target.value }))} rows={2} />
                 </div>
-                <div className="col-span-1 sm:col-span-2 space-y-1.5">
+                <div className="col-span-2 space-y-1.5">
                   <p className="text-[11px] text-slate-500">Special Instructions</p>
                   <DTa value={editForm.specialInstructions} onChange={e => setEditForm((p: any) => ({ ...p, specialInstructions: e.target.value }))} rows={2} />
                 </div>

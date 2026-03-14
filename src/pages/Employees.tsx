@@ -7,6 +7,7 @@ import { fmtDate, fmtSAR } from '@/lib/format';
 import { inp, sel } from '@/lib/cx';
 import FormField from '@/components/FormField';
 import { EMPLOYEE_STATUS } from '@/lib/statusStyles';
+import Icon from '@/components/Icon';
 const initials = (f: string, l: string) => `${f?.[0]||''}${l?.[0]||''}`.toUpperCase();
 const docSt    = (d: number|null): 'expired'|'soon'|'ok'|'none' => {
   if (d===null||d===undefined) return 'none';
@@ -56,24 +57,6 @@ const EMPTY: Record<string,string> = {
   emergencyContactName:'',emergencyContactPhone:'',notes:'',
 };
 const TABS = ['Personal','Employment','Documents','Finance','Emergency'];
-
-function Icon({name,className}:{name:string;className?:string}){
-  const c=className||'w-4 h-4';
-  const M:Record<string,any>={
-    search:<svg className={c} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>,
-    plus:<svg className={c} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4v16m8-8H4"/></svg>,
-    edit:<svg className={c} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>,
-    trash:<svg className={c} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>,
-    x:<svg className={c} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M6 18L18 6M6 6l12 12"/></svg>,
-    alert:<svg className={c} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>,
-    users:<svg className={c} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>,
-    doc:<svg className={c} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>,
-    star:<svg className={c} fill="currentColor" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>,
-    eye:<svg className={c} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>,
-  };
-  return M[name]||<span/>;
-}
-
 // Fld wraps FormField with an optional span class for grid layouts
 function Fld({label,req,span,children}:{label:string;req?:boolean;span?:string;children:React.ReactNode}){
   return(
@@ -212,7 +195,7 @@ export default function Employees(){
 
 
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+      <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold text-white">Employees</h1>
           <p className="text-xs text-slate-500 mt-0.5">
@@ -220,7 +203,7 @@ export default function Employees(){
           </p>
         </div>
         {canEdit&&(
-          <button onClick={openCreate} className="flex items-center gap-1.5 px-3 py-2.5 min-h-[44px] bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium rounded-lg transition-colors">
+          <button onClick={openCreate} className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium rounded-lg transition-colors">
             <Icon name="plus" className="w-3.5 h-3.5"/>Add Employee
           </button>
         )}
@@ -298,15 +281,9 @@ export default function Employees(){
             <table className="w-full text-xs">
               <thead>
                 <tr className="border-b border-white/5">
-                  <th className="py-3 px-4 text-left text-[10px] font-semibold text-slate-500 uppercase tracking-wide whitespace-nowrap">Employee</th>
-                  <th className="py-3 px-4 text-left text-[10px] font-semibold text-slate-500 uppercase tracking-wide whitespace-nowrap hidden sm:table-cell">Dept / Position</th>
-                  <th className="py-3 px-4 text-left text-[10px] font-semibold text-slate-500 uppercase tracking-wide whitespace-nowrap hidden lg:table-cell">Tenure</th>
-                  <th className="py-3 px-4 text-left text-[10px] font-semibold text-slate-500 uppercase tracking-wide whitespace-nowrap hidden md:table-cell">Type</th>
-                  <th className="py-3 px-4 text-left text-[10px] font-semibold text-slate-500 uppercase tracking-wide whitespace-nowrap hidden lg:table-cell">Rating</th>
-                  <th className="py-3 px-4 text-left text-[10px] font-semibold text-slate-500 uppercase tracking-wide whitespace-nowrap hidden md:table-cell">Docs</th>
-                  <th className="py-3 px-4 text-left text-[10px] font-semibold text-slate-500 uppercase tracking-wide whitespace-nowrap hidden md:table-cell">Salary</th>
-                  <th className="py-3 px-4 text-left text-[10px] font-semibold text-slate-500 uppercase tracking-wide whitespace-nowrap">Status</th>
-                  <th className="py-3 px-4 text-left text-[10px] font-semibold text-slate-500 uppercase tracking-wide whitespace-nowrap">Actions</th>
+                  {['Employee','Dept / Position','Tenure','Type','Rating','Docs','Salary','Status','Actions'].map(h=>(
+                    <th key={h} className="py-3 px-4 text-left text-[10px] font-semibold text-slate-500 uppercase tracking-wide whitespace-nowrap">{h}</th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
@@ -326,17 +303,17 @@ export default function Employees(){
                           </div>
                         </div>
                       </td>
-                      <td className="py-3 px-4 hidden sm:table-cell">
+                      <td className="py-3 px-4">
                         <span className={`px-1.5 py-0.5 rounded-md text-[10px] font-medium ${dC}`}>{e.department}</span>
                         <p className="text-slate-400 mt-0.5">{e.position}</p>
                       </td>
-                      <td className="py-3 px-4 whitespace-nowrap hidden lg:table-cell">
+                      <td className="py-3 px-4 whitespace-nowrap">
                         <p className="text-white tabular-nums">{e.years_of_service??0} yr{e.years_of_service!==1?'s':''}</p>
                         <p className="text-[10px] text-slate-500">{fmtDate(e.hire_date)}</p>
                       </td>
-                      <td className="py-3 px-4 text-slate-400 capitalize hidden md:table-cell">{(e.employment_type||'').replace('_',' ')}</td>
-                      <td className="py-3 px-4 hidden lg:table-cell"><Stars rating={e.performance_rating}/></td>
-                      <td className="py-3 px-4 hidden md:table-cell">
+                      <td className="py-3 px-4 text-slate-400 capitalize">{(e.employment_type||'').replace('_',' ')}</td>
+                      <td className="py-3 px-4"><Stars rating={e.performance_rating}/></td>
+                      <td className="py-3 px-4">
                         {wd==='none'?<span className="text-slate-700">—</span>:(
                           <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-medium ${wd==='expired'?'bg-red-500/15 text-red-400':'bg-amber-500/15 text-amber-400'}`}>
                             <Icon name="doc" className="w-2.5 h-2.5"/>
@@ -344,7 +321,7 @@ export default function Employees(){
                           </span>
                         )}
                       </td>
-                      <td className="py-3 px-4 text-slate-300 tabular-nums hidden md:table-cell">{fmtSAR(e.salary)}</td>
+                      <td className="py-3 px-4 text-slate-300 tabular-nums">{fmtSAR(e.salary)}</td>
                       <td className="py-3 px-4">
                         <span className={`px-1.5 py-0.5 rounded-md text-[10px] font-medium capitalize ${EMPLOYEE_STATUS[e.status]||'bg-slate-500/15 text-slate-400'}`}>
                           {(e.status||'').replace('_',' ')}
@@ -352,7 +329,7 @@ export default function Employees(){
                       </td>
                       <td className="py-3 px-4">
                         {canEdit&&(
-                          <div className="flex items-center gap-1">
+                          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                             <button onClick={()=>navigate(`/employees/${e.id}`)} className="p-1.5 rounded-md hover:bg-slate-500/15 text-slate-500 hover:text-slate-300 transition-colors" title="View profile"><Icon name="eye" className="w-3.5 h-3.5"/></button>
                             <button onClick={()=>openEdit(e)} className="p-1.5 rounded-md hover:bg-blue-500/15 text-slate-500 hover:text-blue-400 transition-colors"><Icon name="edit" className="w-3.5 h-3.5"/></button>
                             <button onClick={()=>setDeleteId(e.id)} className="p-1.5 rounded-md hover:bg-red-500/15 text-slate-500 hover:text-red-400 transition-colors"><Icon name="trash" className="w-3.5 h-3.5"/></button>
@@ -381,10 +358,10 @@ export default function Employees(){
       {showForm&&(
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={closeForm}/>
-          <div className="relative w-full sm:max-w-2xl bg-[#0d0f14] rounded-none sm:rounded-2xl border-0 sm:border border-white/10 shadow-2xl flex flex-col h-screen sm:h-auto sm:max-h-[90vh] overflow-hidden">
-            <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-white/5 flex-shrink-0">
+          <div className="relative w-full max-w-2xl bg-[#0d0f14] rounded-2xl border border-white/10 shadow-2xl flex flex-col max-h-[90vh] overflow-hidden">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-white/5 flex-shrink-0">
               <h2 className="text-sm font-semibold text-white">{editId?'Edit Employee':'New Employee'}</h2>
-              <button onClick={closeForm} className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-md hover:bg-white/5 text-slate-400 hover:text-white transition-colors"><Icon name="x" className="w-4 h-4"/></button>
+              <button onClick={closeForm} className="p-1.5 rounded-md hover:bg-white/5 text-slate-400 hover:text-white transition-colors"><Icon name="x" className="w-4 h-4"/></button>
             </div>
             {/* Tabs */}
             <div className="flex border-b border-white/5 px-4 flex-shrink-0 overflow-x-auto">
@@ -396,9 +373,9 @@ export default function Employees(){
               ))}
             </div>
             {/* Content */}
-            <div className="flex-1 overflow-y-auto p-4 sm:p-6">
+            <div className="flex-1 overflow-y-auto p-6">
               {/* TAB 0 Personal */}
-              {formTab===0&&<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {formTab===0&&<div className="grid grid-cols-2 gap-4">
                 <Fld label="First Name" req><input value={form.firstName} onChange={f('firstName')} className={inp} placeholder="Ahmed"/></Fld>
                 <Fld label="Last Name" req><input value={form.lastName} onChange={f('lastName')} className={inp} placeholder="Al-Rashid"/></Fld>
                 <Fld label="Email"><input type="email" value={form.email} onChange={f('email')} className={inp} placeholder="ahmed@rawabi.com" autoComplete="off"/></Fld>
@@ -407,11 +384,11 @@ export default function Employees(){
                 <Fld label="Marital Status"><select value={form.maritalStatus} onChange={f('maritalStatus')} className={sel}><option value="">Select…</option>{MARITAL.map(m=><option key={m} value={m}>{m.charAt(0).toUpperCase()+m.slice(1)}</option>)}</select></Fld>
                 <Fld label="Date of Birth"><input type="date" value={form.dateOfBirth} onChange={f('dateOfBirth')} style={{ colorScheme: 'dark' }} className={inp}/></Fld>
                 <Fld label="Nationality"><input value={form.nationality} onChange={f('nationality')} className={inp} placeholder="Saudi Arabian"/></Fld>
-                <Fld label="Address" span="col-span-full"><textarea value={form.address} onChange={f('address')} rows={2} className={inp+' resize-none'} placeholder="Full address…"/></Fld>
+                <Fld label="Address" span="col-span-2"><textarea value={form.address} onChange={f('address')} rows={2} className={inp+' resize-none'} placeholder="Full address…"/></Fld>
               </div>}
 
               {/* TAB 1 Employment */}
-              {formTab===1&&<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {formTab===1&&<div className="grid grid-cols-2 gap-4">
                 <Fld label="Department" req><select value={form.department} onChange={f('department')} className={sel}>{DEPTS.map(d=><option key={d} value={d}>{d}</option>)}</select></Fld>
                 <Fld label="Position" req><input value={form.position} onChange={f('position')} className={inp} placeholder="Fleet Coordinator"/></Fld>
                 <Fld label="Hire Date" req><input type="date" value={form.hireDate} onChange={f('hireDate')} style={{ colorScheme: 'dark' }} className={inp}/></Fld>
@@ -422,7 +399,7 @@ export default function Employees(){
                 <Fld label="Annual Leave (days)"><input type="number" value={form.annualLeaveEntitlement} onChange={f('annualLeaveEntitlement')} className={inp} placeholder="21"/></Fld>
                 <Fld label="Work Location"><input value={form.workLocation} onChange={f('workLocation')} className={inp} placeholder="Dammam Office"/></Fld>
                 <Fld label="Work Shift"><select value={form.workShift} onChange={f('workShift')} className={sel}>{SHIFTS.map(s=><option key={s} value={s}>{s.charAt(0).toUpperCase()+s.slice(1)}</option>)}</select></Fld>
-                <Fld label="Direct Manager" span="col-span-full"><select value={form.managerId} onChange={f('managerId')} className={sel}>
+                <Fld label="Direct Manager" span="col-span-2"><select value={form.managerId} onChange={f('managerId')} className={sel}>
                   <option value="">None</option>
                   {managers.filter(e=>e.id!==editId).map((e:any)=><option key={e.id} value={e.id}>{e.first_name} {e.last_name} — {e.position}</option>)}
                 </select></Fld>
@@ -432,7 +409,7 @@ export default function Employees(){
               {formTab===2&&<div className="space-y-5">
                 <div>
                   <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-3">Identity (Iqama / National ID)</p>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-2 gap-4">
                     <Fld label="ID Number"><input value={form.idNumber} onChange={f('idNumber')} className={inp} placeholder="1234567890"/></Fld>
                     <Fld label="ID Expiry"><input type="date" value={form.idExpiry} onChange={f('idExpiry')} style={{ colorScheme: 'dark' }} className={inp}/></Fld>
                   </div>
@@ -440,7 +417,7 @@ export default function Employees(){
                 <div className="border-t border-white/5"/>
                 <div>
                   <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-3">Passport</p>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-2 gap-4">
                     <Fld label="Passport Number"><input value={form.passportNumber} onChange={f('passportNumber')} className={inp} placeholder="A12345678"/></Fld>
                     <Fld label="Passport Expiry"><input type="date" value={form.passportExpiry} onChange={f('passportExpiry')} style={{ colorScheme: 'dark' }} className={inp}/></Fld>
                   </div>
@@ -448,7 +425,7 @@ export default function Employees(){
                 <div className="border-t border-white/5"/>
                 <div>
                   <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-3">Visa &amp; Work Permit</p>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-2 gap-4">
                     <Fld label="Visa Number"><input value={form.visaNumber} onChange={f('visaNumber')} className={inp}/></Fld>
                     <Fld label="Visa Expiry"><input type="date" value={form.visaExpiry} onChange={f('visaExpiry')} style={{ colorScheme: 'dark' }} className={inp}/></Fld>
                     <Fld label="Work Permit No."><input value={form.workPermitNumber} onChange={f('workPermitNumber')} className={inp}/></Fld>
@@ -458,7 +435,7 @@ export default function Employees(){
                 <div className="border-t border-white/5"/>
                 <div>
                   <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-3">GOSI &amp; Medical Insurance</p>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-2 gap-4">
                     <Fld label="GOSI Number"><input value={form.gosiNumber} onChange={f('gosiNumber')} className={inp}/></Fld>
                     <Fld label="Medical Insurance No."><input value={form.medicalInsuranceNumber} onChange={f('medicalInsuranceNumber')} className={inp}/></Fld>
                     <Fld label="Insurance Expiry"><input type="date" value={form.medicalInsuranceExpiry} onChange={f('medicalInsuranceExpiry')} style={{ colorScheme: 'dark' }} className={inp}/></Fld>
@@ -467,39 +444,39 @@ export default function Employees(){
               </div>}
 
               {/* TAB 3 Finance */}
-              {formTab===3&&<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {formTab===3&&<div className="grid grid-cols-2 gap-4">
                 <Fld label="Monthly Salary (SAR)"><input type="number" value={form.salary} onChange={f('salary')} className={inp} placeholder="0.00"/></Fld>
                 <Fld label="Bank Name"><input value={form.bankName} onChange={f('bankName')} className={inp} placeholder="Al Rajhi Bank"/></Fld>
-                <Fld label="IBAN" span="col-span-full"><input value={form.bankIban} onChange={f('bankIban')} className={inp} placeholder="SA00 0000 0000 0000 0000 0000"/></Fld>
-                <div className="col-span-full border-t border-white/5 pt-3">
+                <Fld label="IBAN" span="col-span-2"><input value={form.bankIban} onChange={f('bankIban')} className={inp} placeholder="SA00 0000 0000 0000 0000 0000"/></Fld>
+                <div className="col-span-2 border-t border-white/5 pt-3">
                   <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-3">Performance</p>
                 </div>
                 <Fld label="Performance Rating (1–5)"><input type="number" min="1" max="5" step="0.1" value={form.performanceRating} onChange={f('performanceRating')} className={inp} placeholder="4.5"/></Fld>
                 <Fld label="Last Appraisal Date"><input type="date" value={form.lastAppraisalDate} onChange={f('lastAppraisalDate')} style={{ colorScheme: 'dark' }} className={inp}/></Fld>
                 {form.status==='terminated'&&<>
-                  <div className="col-span-full border-t border-white/5 pt-3">
+                  <div className="col-span-2 border-t border-white/5 pt-3">
                     <p className="text-[10px] font-semibold text-red-400 uppercase tracking-wider mb-3">Termination</p>
                   </div>
                   <Fld label="Termination Date"><input type="date" value={form.terminationDate} onChange={f('terminationDate')} style={{ colorScheme: 'dark' }} className={inp}/></Fld>
-                  <Fld label="Reason" span="col-span-full"><textarea value={form.terminationReason} onChange={f('terminationReason')} rows={2} className={inp+' resize-none'} placeholder="Reason…"/></Fld>
+                  <Fld label="Reason" span="col-span-2"><textarea value={form.terminationReason} onChange={f('terminationReason')} rows={2} className={inp+' resize-none'} placeholder="Reason…"/></Fld>
                 </>}
               </div>}
 
               {/* TAB 4 Emergency */}
-              {formTab===4&&<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {formTab===4&&<div className="grid grid-cols-2 gap-4">
                 <Fld label="Emergency Contact Name"><input value={form.emergencyContactName} onChange={f('emergencyContactName')} className={inp}/></Fld>
                 <Fld label="Emergency Contact Phone"><input value={form.emergencyContactPhone} onChange={f('emergencyContactPhone')} className={inp}/></Fld>
-                <Fld label="Internal Notes" span="col-span-full"><textarea value={form.notes} onChange={f('notes')} rows={5} className={inp+' resize-none'} placeholder="Any internal notes about this employee…"/></Fld>
+                <Fld label="Internal Notes" span="col-span-2"><textarea value={form.notes} onChange={f('notes')} rows={5} className={inp+' resize-none'} placeholder="Any internal notes about this employee…"/></Fld>
               </div>}
             </div>
             {/* Footer */}
             <div className="px-6 py-4 border-t border-white/5 flex items-center gap-3 flex-shrink-0">
               <div className="flex gap-2 flex-1">
-                {formTab>0&&<button onClick={()=>setFormTab(t=>t-1)} className="px-3 py-2.5 min-h-[44px] text-xs text-slate-400 border border-white/10 rounded-lg hover:bg-white/5 transition-colors">← Back</button>}
-                {formTab<TABS.length-1&&<button onClick={()=>setFormTab(t=>t+1)} className="px-3 py-2.5 min-h-[44px] text-xs text-slate-400 border border-white/10 rounded-lg hover:bg-white/5 transition-colors">Next →</button>}
+                {formTab>0&&<button onClick={()=>setFormTab(t=>t-1)} className="px-3 py-2 text-xs text-slate-400 border border-white/10 rounded-lg hover:bg-white/5 transition-colors">← Back</button>}
+                {formTab<TABS.length-1&&<button onClick={()=>setFormTab(t=>t+1)} className="px-3 py-2 text-xs text-slate-400 border border-white/10 rounded-lg hover:bg-white/5 transition-colors">Next →</button>}
               </div>
-              <button onClick={closeForm} className="px-4 py-2.5 min-h-[44px] text-xs font-medium text-slate-400 border border-white/10 rounded-lg hover:text-white hover:border-white/20 transition-colors">Cancel</button>
-              <button onClick={save} disabled={saving} className="px-5 py-2.5 min-h-[44px] text-xs font-medium bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white rounded-lg transition-colors">
+              <button onClick={closeForm} className="px-4 py-2 text-xs font-medium text-slate-400 border border-white/10 rounded-lg hover:text-white hover:border-white/20 transition-colors">Cancel</button>
+              <button onClick={save} disabled={saving} className="px-5 py-2 text-xs font-medium bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white rounded-lg transition-colors">
                 {saving?'Saving…':editId?'Save Changes':'Create Employee'}
               </button>
             </div>
@@ -514,8 +491,8 @@ export default function Employees(){
             <h3 className="text-sm font-semibold text-white mb-2">Delete Employee</h3>
             <p className="text-xs text-slate-400 mb-5">This employee record will be permanently deleted.</p>
             <div className="flex gap-3">
-              <button onClick={()=>setDeleteId(null)} className="flex-1 py-2.5 min-h-[44px] text-xs border border-white/10 rounded-lg text-slate-400 hover:text-white transition-colors">Cancel</button>
-              <button onClick={confirmDelete} className="flex-1 py-2.5 min-h-[44px] text-xs bg-red-600 hover:bg-red-500 text-white rounded-lg transition-colors">Delete</button>
+              <button onClick={()=>setDeleteId(null)} className="flex-1 py-2 text-xs border border-white/10 rounded-lg text-slate-400 hover:text-white transition-colors">Cancel</button>
+              <button onClick={confirmDelete} className="flex-1 py-2 text-xs bg-red-600 hover:bg-red-500 text-white rounded-lg transition-colors">Delete</button>
             </div>
           </div>
         </div>

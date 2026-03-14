@@ -37,6 +37,7 @@ interface Driver   { id: number; first_name: string; last_name: string; }
 
 // ── constants ─────────────────────────────────────────────────────
 import { SHIPMENT_STATUS, APPROVAL_STATUS } from '@/lib/statusStyles';
+import StatusBadge from '@/components/StatusBadge';
 
 const emptyForm = {
   customerId: '', orderDate: new Date().toISOString().split('T')[0],
@@ -273,7 +274,7 @@ export default function Shipments() {
         </div>
         {canCreate && (
           <button onClick={() => { setForm({ ...emptyForm }); setIsAddOpen(true); }}
-            className="flex items-center gap-2 px-4 py-2.5 min-h-[44px] bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-lg transition-colors">
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-lg transition-colors">
             <PlusIcon className="w-3.5 h-3.5" /> New Shipment
           </button>
         )}
@@ -336,11 +337,11 @@ export default function Shipments() {
               <thead>
                 <tr className="border-b border-white/5">
                   <th className="text-left px-4 py-3 text-slate-500 font-medium">Shipment</th>
-                  <th className="text-left px-4 py-3 text-slate-500 font-medium hidden sm:table-cell">Customer</th>
+                  <th className="text-left px-4 py-3 text-slate-500 font-medium">Customer</th>
                   <th className="text-left px-4 py-3 text-slate-500 font-medium">Route</th>
-                  <th className="text-left px-4 py-3 text-slate-500 font-medium hidden md:table-cell">Driver / Vehicle</th>
+                  <th className="text-left px-4 py-3 text-slate-500 font-medium">Driver / Vehicle</th>
                   <th className="text-left px-4 py-3 text-slate-500 font-medium">Status</th>
-                  {canDispatch && <th className="text-left px-4 py-3 text-slate-500 font-medium hidden lg:table-cell">Approval</th>}
+                  {canDispatch && <th className="text-left px-4 py-3 text-slate-500 font-medium">Approval</th>}
                   <th className="text-right px-4 py-3 text-slate-500 font-medium">Actions</th>
                 </tr>
               </thead>
@@ -351,27 +352,23 @@ export default function Shipments() {
                       <p className="font-mono text-white font-medium">{s.shipment_number}</p>
                       <p className="text-slate-500 mt-0.5 capitalize">{s.transport_mode}</p>
                     </td>
-                    <td className="px-4 py-3 text-slate-300 hidden sm:table-cell">{s.customer_name}</td>
+                    <td className="px-4 py-3 text-slate-300">{s.customer_name}</td>
                     <td className="px-4 py-3">
                       <p className="text-slate-300">{s.origin_city}</p>
                       <p className="text-slate-500">→ {s.destination_city}</p>
                     </td>
-                    <td className="px-4 py-3 hidden md:table-cell">
+                    <td className="px-4 py-3">
                       {s.driver_name
                         ? <p className="text-slate-300">{s.driver_name}</p>
                         : <p className="text-slate-600 italic">Unassigned</p>}
                       {s.vehicle_plate && <p className="text-slate-500 mt-0.5">{s.vehicle_plate}</p>}
                     </td>
                     <td className="px-4 py-3">
-                      <span className={`inline-block px-2 py-0.5 rounded-full text-[11px] font-medium border ${SHIPMENT_STATUS[s.status] || 'bg-slate-500/15 text-slate-400 border-slate-500/20'}`}>
-                        {s.status.replace(/_/g, ' ')}
-                      </span>
+                      <StatusBadge value={s.status} map={SHIPMENT_STATUS} border />
                     </td>
                     {canDispatch && (
-                      <td className="px-4 py-3 hidden lg:table-cell">
-                        <span className={`inline-block px-2 py-0.5 rounded-full text-[11px] font-medium ${APPROVAL_STATUS[s.approval_status] || 'bg-slate-500/15 text-slate-400'}`}>
-                          {s.approval_status?.replace(/_/g, ' ') || 'draft'}
-                        </span>
+                      <td className="px-4 py-3">
+                        <StatusBadge value={s.approval_status || 'draft'} map={APPROVAL_STATUS} />
                         {s.rejection_reason && (
                           <p className="text-red-400 text-[10px] mt-0.5 max-w-[140px] truncate" title={s.rejection_reason}>
                             {s.rejection_reason}
@@ -436,7 +433,7 @@ export default function Shipments() {
           </DialogHeader>
           <form onSubmit={handleCreate} className="space-y-4 pt-2">
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-3">
               <div className="col-span-2">
                 <Field label="Customer" required>
                   <Select value={form.customerId} onValueChange={fs('customerId')}>
@@ -459,7 +456,7 @@ export default function Shipments() {
               </Field>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-3">
               <Field label="Origin City" required>
                 <DarkInput value={form.originCity} onChange={f('originCity')} placeholder="Riyadh" required />
               </Field>
@@ -474,7 +471,7 @@ export default function Shipments() {
               </Field>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="grid grid-cols-3 gap-3">
               <Field label="Weight (kg)">
                 <DarkInput type="number" value={form.weightKg} onChange={f('weightKg')} placeholder="0.00" min="0" step="0.01" />
               </Field>
@@ -495,7 +492,7 @@ export default function Shipments() {
               </Field>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-3">
               <Field label="Pickup Date">
                 <DarkInput type="date" value={form.requestedPickupDate} onChange={f('requestedPickupDate')} />
               </Field>

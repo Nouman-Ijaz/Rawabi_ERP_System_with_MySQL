@@ -5,6 +5,7 @@
 import { query, get, run } from '../database/db.js';
 import { asyncHandler, httpError } from '../middleware/asyncHandler.js';
 import { ROLE_GROUPS } from '../config/constants.js';
+import { n, logActivity } from '../utils/helpers.js';
 
 const MGMT  = ROLE_GROUPS.MANAGEMENT;
 const ADMIN = ROLE_GROUPS.ADMIN_UP;
@@ -103,7 +104,6 @@ export const updateBalance = asyncHandler(async (req, res) => {
     if (!ADMIN.includes(req.user.role)) throw httpError(403, 'Admin only');
     const { id } = req.params;
     const { entitled_days, carried_days } = req.body;
-    const n = v => (v !== undefined && v !== null && v !== '') ? v : null;
     await run(
         `UPDATE leave_balances SET
          entitled_days = COALESCE(?, entitled_days),
@@ -111,6 +111,7 @@ export const updateBalance = asyncHandler(async (req, res) => {
          WHERE id = ?`,
         [n(entitled_days), n(carried_days), id]
     );
+    await logActivity(req.user.id, 'UPDATE_LEAVE_BALANCE', 'leave_balance', id, { entitled_days, carried_days });
     res.json({ message: 'Balance updated' });
 });
 
@@ -229,6 +230,7 @@ export const createRequest = asyncHandler(async (req, res) => {
         [total_days, employee_id, leave_type_id, year]
     );
 
+    await logActivity(req.user.id, 'CREATE_LEAVE_REQUEST', 'leave_request', result.id, { employee_id, leave_type_id, start_date, end_date, total_days });
     res.status(201).json({ id: result.id, request_number, total_days });
 });
 
@@ -273,6 +275,7 @@ export const reviewRequest = asyncHandler(async (req, res) => {
         );
     }
 
+    await logActivity(req.user.id, 'REVIEW_LEAVE_REQUEST', 'leave_request', id, { status, review_notes });
     res.json({ message: `Leave request ${status}` });
 });
 
@@ -321,6 +324,7 @@ export const cancelRequest = asyncHandler(async (req, res) => {
         }
     }
 
+    await logActivity(req.user.id, 'CANCEL_LEAVE_REQUEST', 'leave_request', id, { previous_status: lr.status });
     res.json({ message: 'Leave request cancelled' });
 });
 

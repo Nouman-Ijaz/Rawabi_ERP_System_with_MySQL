@@ -1,7 +1,7 @@
 import { asyncHandler, httpError } from '../middleware/asyncHandler.js';
 import { query, get, run } from '../database/db.js';
 import { GOSI, PAYROLL } from '../config/constants.js';
-import { logActivity } from '../utils/helpers.js';
+import { n, logActivity } from '../utils/helpers.js';
 
 // ── GET ALL PERIODS ──────────────────────────────────────────────────
 export const getAllPeriods = asyncHandler(async (req, res) => {
@@ -155,20 +155,20 @@ export const updateSlip = asyncHandler(async (req, res) => {
             daysAbsent, workingDays, notes, paymentMethod
         } = req.body;
 
-        const n = (v, fallback = 0) => parseFloat(v ?? fallback) || 0;
-        const basic     = n(basicSalary,     slip.basic_salary);
-        const housing   = n(housingAllowance, slip.housing_allowance);
-        const transport = n(transportAllowance, slip.transport_allowance);
-        const food      = n(foodAllowance,   slip.food_allowance);
-        const phone     = n(phoneAllowance,  slip.phone_allowance);
-        const otherAllw = n(otherAllowance,  slip.other_allowance);
-        const overtime  = n(overtimeAmount,  slip.overtime_amount);
-        const bonus     = n(bonusAmount,     slip.bonus_amount);
+        const toNum = (v, fallback = 0) => parseFloat(v ?? fallback) || 0;
+        const basic     = toNum(basicSalary,     slip.basic_salary);
+        const housing = toNum(housingAllowance, slip.housing_allowance);
+        const transport = toNum(transportAllowance, slip.transport_allowance);
+        const food = toNum(foodAllowance, slip.food_allowance);
+        const phone = toNum(phoneAllowance, slip.phone_allowance);
+        const otherAllw = toNum(otherAllowance, slip.other_allowance);
+        const overtime = toNum(overtimeAmount, slip.overtime_amount);
+        const bonus = toNum(bonusAmount, slip.bonus_amount);
         const gross     = basic + housing + transport + food + phone + otherAllw + overtime + bonus;
-        const gosiEmp   = n(gosiEmployee,    slip.gosi_employee);
-        const loan      = n(loanDeduction,   slip.loan_deduction);
-        const absence   = n(absenceDeduction,slip.absence_deduction);
-        const otherDed  = n(otherDeduction,  slip.other_deduction);
+        const gosiEmp = toNum(gosiEmployee, slip.gosi_employee);
+        const loan = toNum(loanDeduction, slip.loan_deduction);
+        const absence = toNum(absenceDeduction, slip.absence_deduction);
+        const otherDed = toNum(otherDeduction, slip.other_deduction);
         const totalDed  = gosiEmp + loan + absence + otherDed;
         const net       = gross - totalDed;
         const wd        = parseInt(workingDays ?? slip.working_days);

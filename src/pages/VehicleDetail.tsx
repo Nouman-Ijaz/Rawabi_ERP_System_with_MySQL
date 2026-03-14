@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { vehiclesApi } from '@/lib/api';
+import { fmtDate, fmtSAR } from '@/lib/format';
+import { VEHICLE_STATUS } from '@/lib/statusStyles';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 
@@ -28,16 +29,6 @@ export default function VehicleDetail() {
     }
   };
 
-  function getStatusColor(status: string) {
-    const colors: Record<string, string> = {
-      active: 'bg-green-100 text-green-800',
-      maintenance: 'bg-yellow-100 text-yellow-800',
-      retired: 'bg-gray-100 text-gray-800',
-      sold: 'bg-blue-100 text-blue-800',
-      accident: 'bg-red-100 text-red-800',
-    };
-    return colors[status] || 'bg-gray-100 text-gray-800';
-  }
 
   if (isLoading) {
     return (
@@ -61,7 +52,7 @@ export default function VehicleDetail() {
         <div>
           <div className="flex items-center gap-3">
             <h1 className="text-2xl font-bold text-slate-900">{vehicle.plate_number}</h1>
-            <Badge className={getStatusColor(vehicle.status)}>{vehicle.status}</Badge>
+            <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium capitalize ${VEHICLE_STATUS[vehicle.status] || "bg-slate-500/15 text-slate-400"}`}>{vehicle.status}</span>
           </div>
           <p className="text-slate-500">{vehicle.vehicle_code}</p>
         </div>
@@ -103,11 +94,11 @@ export default function VehicleDetail() {
               </div>
               <div>
                 <p className="text-sm text-slate-500">Registration Expiry</p>
-                <p className="font-medium">{vehicle.registration_expiry ? new Date(vehicle.registration_expiry).toLocaleDateString() : '-'}</p>
+                <p className="font-medium">{vehicle.registration_expiry ? fmtDate(vehicle.registration_expiry) : '-'}</p>
               </div>
               <div>
                 <p className="text-sm text-slate-500">Insurance Expiry</p>
-                <p className="font-medium">{vehicle.insurance_expiry ? new Date(vehicle.insurance_expiry).toLocaleDateString() : '-'}</p>
+                <p className="font-medium">{vehicle.insurance_expiry ? fmtDate(vehicle.insurance_expiry) : '-'}</p>
               </div>
             </div>
           </CardContent>
@@ -146,8 +137,8 @@ export default function VehicleDetail() {
                     <p className="text-sm text-slate-500">{record.description}</p>
                   </div>
                   <div className="text-right">
-                    <p className="font-medium">{new Date(record.service_date).toLocaleDateString()}</p>
-                    <p className="text-sm text-slate-500">SAR {record.cost?.toLocaleString()}</p>
+                    <p className="font-medium">{fmtDate(record.service_date)}</p>
+                    <p className="text-sm text-slate-500">{fmtSAR(record.cost)}</p>
                   </div>
                 </div>
               ))}

@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { driversApi } from '@/lib/api';
+import { fmtDate } from '@/lib/format';
+import { DRIVER_STATUS } from '@/lib/statusStyles';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 
@@ -28,16 +29,6 @@ export default function DriverDetail() {
     }
   };
 
-  function getStatusColor(status: string) {
-    const colors: Record<string, string> = {
-      available: 'bg-green-100 text-green-800',
-      on_trip: 'bg-blue-100 text-blue-800',
-      on_leave: 'bg-yellow-100 text-yellow-800',
-      suspended: 'bg-red-100 text-red-800',
-      off_duty: 'bg-gray-100 text-gray-800',
-    };
-    return colors[status] || 'bg-gray-100 text-gray-800';
-  }
 
   if (isLoading) {
     return (
@@ -61,7 +52,7 @@ export default function DriverDetail() {
         <div>
           <div className="flex items-center gap-3">
             <h1 className="text-2xl font-bold text-slate-900">{driver.first_name} {driver.last_name}</h1>
-            <Badge className={getStatusColor(driver.status)}>{driver.status.replace('_', ' ')}</Badge>
+            <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium capitalize ${DRIVER_STATUS[driver.status] || "bg-slate-500/15 text-slate-400"}`}>{driver.status.replace('_', ' ')}</span>
           </div>
           <p className="text-slate-500">{driver.employee_code}</p>
         </div>
@@ -91,7 +82,7 @@ export default function DriverDetail() {
               </div>
               <div>
                 <p className="text-sm text-slate-500">Hire Date</p>
-                <p className="font-medium">{driver.hire_date ? new Date(driver.hire_date).toLocaleDateString() : '-'}</p>
+                <p className="font-medium">{driver.hire_date ? fmtDate(driver.hire_date) : '-'}</p>
               </div>
               <div>
                 <p className="text-sm text-slate-500">License Number</p>
@@ -103,7 +94,7 @@ export default function DriverDetail() {
               </div>
               <div>
                 <p className="text-sm text-slate-500">License Expiry</p>
-                <p className="font-medium">{driver.license_expiry ? new Date(driver.license_expiry).toLocaleDateString() : '-'}</p>
+                <p className="font-medium">{driver.license_expiry ? fmtDate(driver.license_expiry) : '-'}</p>
               </div>
               <div>
                 <p className="text-sm text-slate-500">Experience</p>

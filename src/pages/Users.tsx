@@ -5,7 +5,7 @@ import { toast } from 'sonner';
 import { fmtDate, fmtDateTime } from '@/lib/format';
 import { inp, sel } from '@/lib/cx';
 import FormField from '@/components/FormField';
-import Modal, { ModalFooter, ConfirmModal } from '@/components/Modal';
+import Icon from '@/components/Icon';
 const initials = (f: string, l: string) => `${f?.[0]||''}${l?.[0]||''}`.toUpperCase();
 
 const ROLES = ['super_admin','admin','office_admin','dispatcher','accountant','driver'];
@@ -24,24 +24,6 @@ const av = (id: number) => AVC[id % AVC.length];
 const EMPTY_FORM = {
   email:'',firstName:'',lastName:'',role:'dispatcher',department:'',phone:'',password:'',isActive:'1',
 };
-
-function Icon({name,className}:{name:string;className?:string}){
-  const c=className||'w-4 h-4';
-  const M:Record<string,any>={
-    search:<svg className={c} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>,
-    plus:<svg className={c} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4v16m8-8H4"/></svg>,
-    edit:<svg className={c} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>,
-    trash:<svg className={c} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>,
-    x:<svg className={c} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M6 18L18 6M6 6l12 12"/></svg>,
-    key:<svg className={c} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/></svg>,
-    users:<svg className={c} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>,
-    eye:<svg className={c} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>,
-    eyeoff:<svg className={c} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"/></svg>,
-    info:<svg className={c} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>,
-  };
-  return M[name]||<span/>;
-}
-
 
 const Fld = FormField;
 
@@ -176,13 +158,13 @@ export default function Users(){
   return(
     <div className="space-y-5">
       {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
+      <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold text-white">Users</h1>
           <p className="text-xs text-slate-500 mt-0.5">{statsTotal} total · {statsActive} active</p>
         </div>
         {isSuperAdmin&&(
-          <button onClick={openCreate} className="flex items-center gap-1.5 px-3 py-2 min-h-[44px] bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium rounded-lg transition-colors">
+          <button onClick={openCreate} className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium rounded-lg transition-colors">
             <Icon name="plus" className="w-3.5 h-3.5"/>Add User
           </button>
         )}
@@ -298,148 +280,147 @@ export default function Users(){
       </div>
 
       {/* CREATE / EDIT MODAL */}
-      {/* Hidden dummy fields defeat browser autofill */}
-      {showForm && (
-        <>
-          <input type="text"     name="prevent_autofill"    style={{display:'none'}} autoComplete="off"/>
+      {showForm&&(
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={closeForm}/>
+          {/* Hidden dummy fields defeat browser autofill before real fields */}
+          <input type="text"     name="prevent_autofill" style={{display:'none'}} autoComplete="off"/>
           <input type="password" name="prevent_autofill_pw" style={{display:'none'}} autoComplete="new-password"/>
-        </>
-      )}
-      <Modal
-        open={showForm}
-        onClose={closeForm}
-        title={editId ? 'Edit User' : 'New User'}
-        variant="sheet"
-        maxWidth="sm:max-w-md"
-        footer={
-          <ModalFooter
-            onClose={closeForm}
-            onSave={save}
-            saving={saving}
-            saveLabel={editId ? 'Save Changes' : 'Create User'}
-          />
-        }
-      >
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
-
-      {!editId&&(
-        <Fld label="Email" req>
-          <input type="email" value={form.email} onChange={f('email')} className={inp} placeholder="user@rawabi.com" autoComplete="off" name="new-user-email"/>
-        </Fld>
-      )}
-      {editId&&(
-        <div className="bg-[#0c0e13] rounded-lg px-4 py-2.5 border border-white/5">
-          <p className="text-[10px] text-slate-500">Email</p>
-          <p className="text-xs text-slate-300 mt-0.5">{form.email}</p>
-        </div>
-      )}
-      <div className="grid grid-cols-2 gap-3">
-        <Fld label="First Name" req><input value={form.firstName} onChange={f('firstName')} className={inp} placeholder="Ahmed" autoComplete="off"/></Fld>
-        <Fld label="Last Name" req><input value={form.lastName} onChange={f('lastName')} className={inp} placeholder="Al-Rashid" autoComplete="off"/></Fld>
-      </div>
-      <Fld label="Role" req>
-        <select value={form.role} onChange={f('role')} className={sel} disabled={!isSuperAdmin&&editId!==null}>
-          {ROLES.map(r=><option key={r} value={r}>{r.replace('_',' ')}</option>)}
-        </select>
-      </Fld>
-      <div className="grid grid-cols-2 gap-3">
-        <Fld label="Department">
-          <select value={form.department} onChange={f('department')} className={sel}>
-            <option value="">Select department…</option>
-            {['Operations','Logistics','Finance','HR','IT','Management','Maintenance','Dispatch','Admin','Sales'].map(d=>(
-              <option key={d} value={d}>{d}</option>
-            ))}
-          </select>
-        </Fld>
-        <Fld label="Phone"><input value={form.phone} onChange={f('phone')} className={inp} placeholder="+966 5xx xxx xxxx" autoComplete="off"/></Fld>
-      </div>
-      {editId&&(
-        <Fld label="Account Status">
-          <select value={form.isActive} onChange={f('isActive')} className={sel}>
-            <option value="1">Active</option>
-            <option value="0">Inactive</option>
-          </select>
-        </Fld>
-      )}
-      {!editId&&(
-        <Fld label="Password" req>
-          <div className="relative">
-            <input type={showPassInp?'text':'password'} value={form.password} onChange={f('password')}
-              className={inp+' pr-10'} placeholder="Min 6 characters"
-              autoComplete="new-password" name="new-user-password"/>
-            <button type="button" onClick={()=>setShowPassInp(p=>!p)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300">
-              <Icon name={showPassInp?'eyeoff':'eye'} className="w-3.5 h-3.5"/>
-            </button>
+          <div className="relative w-full max-w-md bg-[#0d0f14] rounded-2xl border border-white/10 shadow-2xl flex flex-col max-h-[90vh] overflow-hidden">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-white/5 flex-shrink-0">
+              <h2 className="text-sm font-semibold text-white">{editId?'Edit User':'New User'}</h2>
+              <button onClick={closeForm} className="p-1.5 rounded-md hover:bg-white/5 text-slate-400 hover:text-white transition-colors"><Icon name="x" className="w-4 h-4"/></button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-6 space-y-4">
+              {!editId&&(
+                <Fld label="Email" req>
+                  <input type="email" value={form.email} onChange={f('email')} className={inp} placeholder="user@rawabi.com" autoComplete="off" name="new-user-email"/>
+                </Fld>
+              )}
+              {editId&&(
+                <div className="bg-[#0c0e13] rounded-lg px-4 py-2.5 border border-white/5">
+                  <p className="text-[10px] text-slate-500">Email</p>
+                  <p className="text-xs text-slate-300 mt-0.5">{form.email}</p>
+                </div>
+              )}
+              <div className="grid grid-cols-2 gap-3">
+                <Fld label="First Name" req><input value={form.firstName} onChange={f('firstName')} className={inp} placeholder="Ahmed" autoComplete="off"/></Fld>
+                <Fld label="Last Name" req><input value={form.lastName} onChange={f('lastName')} className={inp} placeholder="Al-Rashid" autoComplete="off"/></Fld>
+              </div>
+              <Fld label="Role" req>
+                <select value={form.role} onChange={f('role')} className={sel} disabled={!isSuperAdmin&&editId!==null}>
+                  {ROLES.map(r=><option key={r} value={r}>{r.replace('_',' ')}</option>)}
+                </select>
+              </Fld>
+              <div className="grid grid-cols-2 gap-3">
+                <Fld label="Department">
+                  <select value={form.department} onChange={f('department')} className={sel}>
+                    <option value="">Select department…</option>
+                    {['Operations','Logistics','Finance','HR','IT','Management','Maintenance','Dispatch','Admin','Sales'].map(d=>(
+                      <option key={d} value={d}>{d}</option>
+                    ))}
+                  </select>
+                </Fld>
+                <Fld label="Phone"><input value={form.phone} onChange={f('phone')} className={inp} placeholder="+966 5xx xxx xxxx" autoComplete="off"/></Fld>
+              </div>
+              {editId&&(
+                <Fld label="Account Status">
+                  <select value={form.isActive} onChange={f('isActive')} className={sel}>
+                    <option value="1">Active</option>
+                    <option value="0">Inactive</option>
+                  </select>
+                </Fld>
+              )}
+              {!editId&&(
+                <Fld label="Password" req>
+                  <div className="relative">
+                    <input type={showPassInp?'text':'password'} value={form.password} onChange={f('password')}
+                      className={inp+' pr-10'} placeholder="Min 6 characters"
+                      autoComplete="new-password" name="new-user-password"/>
+                    <button type="button" onClick={()=>setShowPassInp(p=>!p)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300">
+                      <Icon name={showPassInp?'eyeoff':'eye'} className="w-3.5 h-3.5"/>
+                    </button>
+                  </div>
+                </Fld>
+              )}
+            </div>
+            <div className="px-6 py-4 border-t border-white/5 flex gap-3 flex-shrink-0">
+              <button onClick={closeForm} className="flex-1 py-2 text-xs font-medium text-slate-400 border border-white/10 rounded-lg hover:text-white transition-colors">Cancel</button>
+              <button onClick={save} disabled={saving} className="flex-1 py-2 text-xs font-medium bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white rounded-lg transition-colors">
+                {saving?'Saving…':editId?'Save Changes':'Create User'}
+              </button>
+            </div>
           </div>
-        </Fld>
-      )}
         </div>
-      </Modal>
+      )}
 
       {/* RESET PASSWORD MODAL */}
-      <Modal
-        open={!!resetTarget}
-        onClose={() => setResetTarget(null)}
-        title="Reset Password"
-        subtitle={resetTarget ? `Set a new password for ${resetTarget.first_name} ${resetTarget.last_name}` : undefined}
-        variant="centered"
-        maxWidth="max-w-sm"
-        footer={
-          <ModalFooter
-            onClose={() => setResetTarget(null)}
-            onSave={doReset}
-            saving={resetting}
-            saveDisabled={newPassword.length < 6}
-            saveLabel="Reset Password"
-            variant="warning"
-          />
-        }
-      >
-        <div className="p-4 sm:p-6 space-y-3">
-    <div className="relative mb-4">
-      <input type={showResetPw?'text':'password'} value={newPassword} onChange={e=>setNewPassword(e.target.value)}
-        className={inp+' pr-10'} placeholder="New password (min 6 chars)"
-        autoComplete="new-password" name="reset-password-field"/>
-      <button type="button" onClick={()=>setShowResetPw(p=>!p)}
-        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300">
-        <Icon name={showResetPw?'eyeoff':'eye'} className="w-3.5 h-3.5"/>
-      </button>
-    </div>
-    {newPassword.length>0&&newPassword.length<6&&(
-      <p className="text-[11px] text-red-400 mb-3">Password must be at least 6 characters</p>
-    )}
-          {newPassword.length > 0 && newPassword.length < 6 && (
-            <p className="text-[11px] text-red-400">Password must be at least 6 characters</p>
-          )}
+      {resetTarget&&(
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={()=>setResetTarget(null)}/>
+          <div className="relative bg-[#1a1d27] rounded-xl border border-white/10 p-6 w-full max-w-sm shadow-2xl">
+            <h3 className="text-sm font-semibold text-white mb-1">Reset Password</h3>
+            <p className="text-xs text-slate-500 mb-4">Set a new password for <span className="text-white font-medium">{resetTarget.first_name} {resetTarget.last_name}</span></p>
+            <div className="relative mb-4">
+              <input type={showResetPw?'text':'password'} value={newPassword} onChange={e=>setNewPassword(e.target.value)}
+                className={inp+' pr-10'} placeholder="New password (min 6 chars)"
+                autoComplete="new-password" name="reset-password-field"/>
+              <button type="button" onClick={()=>setShowResetPw(p=>!p)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300">
+                <Icon name={showResetPw?'eyeoff':'eye'} className="w-3.5 h-3.5"/>
+              </button>
+            </div>
+            {newPassword.length>0&&newPassword.length<6&&(
+              <p className="text-[11px] text-red-400 mb-3">Password must be at least 6 characters</p>
+            )}
+            <div className="flex gap-3">
+              <button onClick={()=>setResetTarget(null)} className="flex-1 py-2 text-xs border border-white/10 rounded-lg text-slate-400 hover:text-white transition-colors">Cancel</button>
+              <button onClick={doReset} disabled={resetting||newPassword.length<6}
+                className="flex-1 py-2 text-xs bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-white rounded-lg transition-colors">
+                {resetting?'Resetting…':'Reset Password'}
+              </button>
+            </div>
+          </div>
         </div>
-      </Modal>
+      )}
 
       {/* TOGGLE ACTIVE MODAL */}
-      <ConfirmModal
-        open={!!toggleTarget}
-        onClose={() => setToggleTarget(null)}
-        title={toggleTarget?.is_active ? 'Deactivate User' : 'Activate User'}
-        message={toggleTarget ? (
-          toggleTarget.is_active
-            ? `${toggleTarget.first_name} will lose access immediately.`
-            : `${toggleTarget.first_name} will regain access to the system.`
-        ) : ''}
-        confirmLabel={toggleTarget?.is_active ? 'Deactivate' : 'Activate'}
-        variant={toggleTarget?.is_active ? 'danger' : 'primary'}
-        onConfirm={() => toggleTarget && toggleActive(toggleTarget)}
-      />
+      {toggleTarget&&(
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={()=>setToggleTarget(null)}/>
+          <div className="relative bg-[#1a1d27] rounded-xl border border-white/10 p-6 w-full max-w-sm shadow-2xl">
+            <h3 className="text-sm font-semibold text-white mb-2">{toggleTarget.is_active?'Deactivate User':'Activate User'}</h3>
+            <p className="text-xs text-slate-400 mb-5">
+              {toggleTarget.is_active
+                ?`${toggleTarget.first_name} will lose access immediately.`
+                :`${toggleTarget.first_name} will regain access to the system.`}
+            </p>
+            <div className="flex gap-3">
+              <button onClick={()=>setToggleTarget(null)} className="flex-1 py-2 text-xs border border-white/10 rounded-lg text-slate-400 hover:text-white transition-colors">Cancel</button>
+              <button onClick={()=>toggleActive(toggleTarget)}
+                className={`flex-1 py-2 text-xs text-white rounded-lg transition-colors ${toggleTarget.is_active?'bg-red-600 hover:bg-red-500':'bg-emerald-600 hover:bg-emerald-500'}`}>
+                {toggleTarget.is_active?'Deactivate':'Activate'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* DELETE CONFIRM */}
-      <ConfirmModal
-        open={!!deleteId}
-        onClose={() => setDeleteId(null)}
-        title="Delete User"
-        message="This user account will be permanently deleted."
-        confirmLabel="Delete"
-        variant="danger"
-        onConfirm={confirmDelete}
-      />
+      {deleteId&&(
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={()=>setDeleteId(null)}/>
+          <div className="relative bg-[#1a1d27] rounded-xl border border-white/10 p-6 w-full max-w-sm shadow-2xl">
+            <h3 className="text-sm font-semibold text-white mb-2">Delete User</h3>
+            <p className="text-xs text-slate-400 mb-5">This user account will be permanently deleted.</p>
+            <div className="flex gap-3">
+              <button onClick={()=>setDeleteId(null)} className="flex-1 py-2 text-xs border border-white/10 rounded-lg text-slate-400 hover:text-white transition-colors">Cancel</button>
+              <button onClick={confirmDelete} className="flex-1 py-2 text-xs bg-red-600 hover:bg-red-500 text-white rounded-lg transition-colors">Delete</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
